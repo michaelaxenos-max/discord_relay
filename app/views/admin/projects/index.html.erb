@@ -42,12 +42,12 @@
               <th style="width:40px;">
                 <input type="checkbox" class="form-check-input" id="select-all" title="Select all on this page">
               </th>
-              <th>Project Name</th>
-              <th>Hubstaff ID</th>
-              <th>Sheet Row</th>
-              <th>Tasks</th>
-              <th>Status</th>
-              <th>Created</th>
+              <th data-sort="name" class="sort-col" style="cursor:pointer; user-select:none;">Project Name <span class="sort-icon text-muted"></span></th>
+              <th data-sort="hubstaff" class="sort-col" style="cursor:pointer; user-select:none;">Hubstaff ID <span class="sort-icon text-muted"></span></th>
+              <th data-sort="row" class="sort-col" style="cursor:pointer; user-select:none;">Sheet Row <span class="sort-icon text-muted"></span></th>
+              <th data-sort="tasks" class="sort-col" style="cursor:pointer; user-select:none;">Tasks <span class="sort-icon text-muted"></span></th>
+              <th data-sort="status" class="sort-col" style="cursor:pointer; user-select:none;">Status <span class="sort-icon text-muted"></span></th>
+              <th data-sort="created" class="sort-col" style="cursor:pointer; user-select:none;">Created <span class="sort-icon text-muted"></span></th>
             </tr>
           </thead>
           <tbody id="projects-tbody">
@@ -57,6 +57,10 @@
                   data-project-id="<%= project.id %>"
                   data-name="<%= project.name.downcase %>"
                   data-hubstaff-id="<%= project.hubstaff_project_id.to_s.downcase %>"
+                  data-row="<%= project.row_number.to_i %>"
+                  data-tasks="<%= project.project_tasks.size %>"
+                  data-status="<%= project.status %>"
+                  data-created="<%= project.created_at.utc.iso8601 %>"
                   data-can-resync="<%= can_resync %>">
                 <td>
                   <input type="checkbox" class="form-check-input project-checkbox"
@@ -92,10 +96,12 @@
 
   <script>
     (function () {
-      var PER_PAGE   = 25;
+      var PER_PAGE    = 25;
       var selectedIds = new Set();
       var currentPage = 1;
       var searchQuery = '';
+      var sortCol     = 'created';
+      var sortDir     = -1; // -1 = desc (newest first)
 
       var searchInput  = document.getElementById('project-search');
       var countEl      = document.getElementById('selection-count');
@@ -115,14 +121,46 @@
                row.dataset.hubstaffId.includes(searchQuery);
       }
 
+      function colValue(row, col) {
+        switch (col) {
+          case 'name':    return row.dataset.name;
+          case 'hubstaff':return row.dataset.hubstaffId;
+          case 'row':     return parseInt(row.dataset.row) || 0;
+          case 'tasks':   return parseInt(row.dataset.tasks) || 0;
+          case 'status':  return row.dataset.status;
+          case 'created': return row.dataset.created;
+          default:        return '';
+        }
+      }
+
+      function compareRows(a, b) {
+        var av = colValue(a, sortCol), bv = colValue(b, sortCol);
+        if (av < bv) return -sortDir;
+        if (av > bv) return  sortDir;
+        return 0;
+      }
+
       function getFilteredSorted() {
         return allRows()
           .filter(matchesSearch)
           .sort(function (a, b) {
             var aS = selectedIds.has(a.dataset.projectId);
             var bS = selectedIds.has(b.dataset.projectId);
-            return (aS === bS) ? 0 : (aS ? -1 : 1);
+            if (aS !== bS) return aS ? -1 : 1;
+            return compareRows(a, b);
           });
+      }
+
+      function updateSortHeaders() {
+        document.querySelectorAll('.sort-col').forEach(function (th) {
+          var icon = th.querySelector('.sort-icon');
+          if (th.dataset.sort === sortCol) {
+            icon.textContent = sortDir === 1 ? ' ↑' : ' ↓';
+            th.style.color = '';
+          } else {
+            icon.textContent = '';
+          }
+        });
       }
 
       function render() {
@@ -134,47 +172,37 @@
         var start    = (currentPage - 1) * PER_PAGE;
         var pageRows = filtered.slice(start, start + PER_PAGE);
 
-        // Hide all, then show and reorder the current page
         allRows().forEach(function (r) { r.style.display = 'none'; });
         pageRows.forEach(function (r) {
           tbody.appendChild(r);
           r.style.display = '';
         });
 
-        // Sync checkbox states
         document.querySelectorAll('.project-checkbox').forEach(function (cb) {
           cb.checked = selectedIds.has(cb.dataset.projectId);
         });
 
-        // Select-all state (only counts resyncable rows on this page)
         var resyncable = pageRows.filter(function (r) { return r.dataset.canResync === 'true'; });
         var pageSel    = resyncable.filter(function (r) { return selectedIds.has(r.dataset.projectId); }).length;
         selectAll.checked       = resyncable.length > 0 && pageSel === resyncable.length;
         selectAll.indeterminate = pageSel > 0 && pageSel < resyncable.length;
 
-        // Showing counter
-        if (total === 0) {
-          showingEl.textContent = 'No projects found';
-        } else {
-          showingEl.textContent = 'Showing ' + (start + 1) + '–' + Math.min(start + PER_PAGE, total) + ' of ' + total;
-        }
+        showingEl.textContent = total === 0 ? 'No projects found' :
+          'Showing ' + (start + 1) + '–' + Math.min(start + PER_PAGE, total) + ' of ' + total;
 
-        // Selection counter + button
         var sel = selectedIds.size;
-        btn.disabled      = sel === 0;
+        btn.disabled        = sel === 0;
         countEl.textContent = sel === 0 ? '0 selected' : sel + ' selected';
 
+        updateSortHeaders();
         renderPagination(totalPages);
       }
 
       function renderPagination(totalPages) {
         if (totalPages <= 1) { paginationEl.innerHTML = ''; return; }
-
-        var html = '<nav aria-label="Projects pagination"><ul class="pagination pagination-sm mb-0">';
-
+        var html = '<nav><ul class="pagination pagination-sm mb-0">';
         html += '<li class="page-item' + (currentPage === 1 ? ' disabled' : '') + '">' +
                 '<a class="page-link" href="#" data-page="' + (currentPage - 1) + '">‹</a></li>';
-
         for (var i = 1; i <= totalPages; i++) {
           if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
             html += '<li class="page-item' + (i === currentPage ? ' active' : '') + '">' +
@@ -183,22 +211,34 @@
             html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
           }
         }
-
         html += '<li class="page-item' + (currentPage === totalPages ? ' disabled' : '') + '">' +
                 '<a class="page-link" href="#" data-page="' + (currentPage + 1) + '">›</a></li>';
-
         html += '</ul></nav>';
         paginationEl.innerHTML = html;
-
         paginationEl.querySelectorAll('[data-page]').forEach(function (link) {
           link.addEventListener('click', function (e) {
             e.preventDefault();
-            var page       = parseInt(this.dataset.page);
-            var totalPages = Math.ceil(getFilteredSorted().length / PER_PAGE);
-            if (page >= 1 && page <= totalPages) { currentPage = page; render(); }
+            var page = parseInt(this.dataset.page);
+            var max  = Math.ceil(getFilteredSorted().length / PER_PAGE);
+            if (page >= 1 && page <= max) { currentPage = page; render(); }
           });
         });
       }
+
+      // Column header sort
+      document.querySelectorAll('.sort-col').forEach(function (th) {
+        th.addEventListener('click', function () {
+          var col = this.dataset.sort;
+          if (sortCol === col) {
+            sortDir = -sortDir;
+          } else {
+            sortCol = col;
+            sortDir = 1;
+          }
+          currentPage = 1;
+          render();
+        });
+      });
 
       // Search
       searchInput.addEventListener('input', function () {
@@ -207,7 +247,7 @@
         render();
       });
 
-      // Checkbox change (event delegation)
+      // Checkbox change
       tbody.addEventListener('change', function (e) {
         if (!e.target.classList.contains('project-checkbox')) return;
         var id = e.target.dataset.projectId;
@@ -215,12 +255,11 @@
         render();
       });
 
-      // Select all (current page only)
+      // Select all (current page)
       selectAll.addEventListener('change', function () {
         var filtered = getFilteredSorted();
         var start    = (currentPage - 1) * PER_PAGE;
-        var pageRows = filtered.slice(start, start + PER_PAGE);
-        pageRows.forEach(function (row) {
+        filtered.slice(start, start + PER_PAGE).forEach(function (row) {
           if (row.dataset.canResync !== 'true') return;
           if (selectAll.checked) { selectedIds.add(row.dataset.projectId); }
           else                   { selectedIds.delete(row.dataset.projectId); }
@@ -228,12 +267,12 @@
         render();
       });
 
-      // On submit, inject hidden inputs for all selected IDs
+      // Inject hidden inputs on submit
       document.getElementById('bulk-resync-form').addEventListener('submit', function () {
         var container = document.getElementById('selected-inputs-container');
         container.innerHTML = '';
         selectedIds.forEach(function (id) {
-          var input = document.createElement('input');
+          var input   = document.createElement('input');
           input.type  = 'hidden';
           input.name  = 'project_ids[]';
           input.value = id;

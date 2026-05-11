@@ -1,0 +1,41 @@
+<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh; background: #f0f2f5;">
+  <div class="card shadow-sm" style="width: 100%; max-width: 420px;">
+    <div class="card-body p-5">
+      <div class="text-center mb-4">
+        <i class="bi bi-shield-lock-fill text-primary" style="font-size: 2.5rem;"></i>
+        <h4 class="mt-2 mb-0 fw-bold">Admin Panel</h4>
+        <p class="text-muted small">Sign in to your account</p>
+      </div>
+
+      <% if flash[:alert] %>
+        <div class="alert alert-danger small"><%= flash[:alert] %></div>
+      <% end %>
+
+      <%= form_for(resource, as: resource_name, url: session_path(resource_name)) do |f| %>
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="admin_user_email">Email address</label>
+          <%= f.email_field :email,
+                autofocus: true,
+                autocomplete: "email",
+                class: "form-control",
+                placeholder: "admin@example.com" %>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-semibold" for="admin_user_password">Password</label>
+          <%= f.password_field :password,
+                autocomplete: "current-password",
+                class: "form-control",
+                placeholder: "••••••••" %>
+        </div>
+
+        <div class="mb-3 form-check">
+          <%= f.check_box :remember_me, class: "form-check-input" %>
+          <label class="form-check-label text-muted small" for="admin_user_remember_me">Remember me</label>
+        </div>
+
+        <%= f.submit "Sign in", class: "btn btn-primary w-100 fw-semibold" %>
+      <% end %>
+    </div>
+  </div>
+</div>

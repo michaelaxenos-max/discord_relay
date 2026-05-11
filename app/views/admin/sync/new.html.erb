@@ -1,0 +1,48 @@
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="d-flex align-items-center mb-4">
+      <%= link_to admin_root_path, class: "btn btn-sm btn-outline-secondary me-3" do %>
+        <i class="bi bi-arrow-left"></i> Back
+      <% end %>
+      <h4 class="mb-0 fw-bold">Sync User to Projects</h4>
+    </div>
+
+    <% if @user %>
+      <div class="card mb-4">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center"
+               style="width:48px;height:48px;flex-shrink:0;">
+            <i class="bi bi-person-fill text-primary fs-5"></i>
+          </div>
+          <div>
+            <div class="fw-semibold"><%= @user[:name].presence || "Unknown" %></div>
+            <div class="text-muted small"><%= @user[:email].presence || "—" %></div>
+            <span class="badge bg-light text-secondary border mt-1"><%= @user[:membership_role] %></span>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="card">
+      <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-arrow-repeat text-primary me-1"></i> Project IDs to Sync
+      </div>
+      <div class="card-body p-4">
+        <%= form_with url: admin_sync_index_path, method: :post do |f| %>
+          <%= f.hidden_field :user_id, value: @user_id %>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Project IDs <span class="text-muted fw-normal">(one per line)</span></label>
+            <%= f.text_area :project_ids,
+                  rows: 10,
+                  class: "form-control font-monospace",
+                  placeholder: "12345\n67890\n11111" %>
+            <div class="form-text">Paste one Hubstaff project ID per line. Blank lines are ignored.</div>
+          </div>
+
+          <%= f.submit "Sync to Projects", class: "btn btn-primary w-100 fw-semibold" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

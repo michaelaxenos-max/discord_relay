@@ -113,4 +113,3 @@ function onProjectRowAdded(e) {
     Logger.log(`Hubstaff project creation failed: ${err.message}`);
   }
 }
-

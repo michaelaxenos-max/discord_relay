@@ -8,4 +8,17 @@ Rails.application.routes.draw do
   namespace :api do
     resources :projects, only: [:create, :destroy]
   end
+
+  devise_for :admin_users,
+    path: "admin",
+    path_names: { sign_in: "login", sign_out: "logout" },
+    controllers: { sessions: "admin/sessions" }
+
+  namespace :admin do
+    root to: "dashboard#index"
+    resources :teams do
+      resources :task_templates, shallow: true
+    end
+    resources :sync, only: [:new, :create]
+  end
 end

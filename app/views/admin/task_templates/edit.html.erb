@@ -1,0 +1,22 @@
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="d-flex align-items-center mb-4">
+      <%= link_to admin_teams_path, class: "btn btn-sm btn-outline-secondary me-3" do %>
+        <i class="bi bi-arrow-left"></i> Back
+      <% end %>
+      <h4 class="mb-0 fw-bold">Edit Task</h4>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-4">
+        <%= form_with model: [:admin, @task_template] do |f| %>
+          <%= render "form", f: f, task_template: @task_template %>
+          <div class="d-flex gap-2">
+            <%= f.submit "Save Changes", class: "btn btn-primary" %>
+            <%= link_to "Cancel", admin_teams_path, class: "btn btn-outline-secondary" %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

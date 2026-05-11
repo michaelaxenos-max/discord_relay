@@ -1,0 +1,56 @@
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold">Org Members</h4>
+    <p class="text-muted mb-0 small">All members from Hubstaff</p>
+  </div>
+  <span class="badge bg-secondary rounded-pill"><%= @users.size %> users</span>
+</div>
+
+<% if @users.empty? %>
+  <div class="card">
+    <div class="card-body text-center py-5 text-muted">
+      <i class="bi bi-people" style="font-size:2rem;"></i>
+      <p class="mt-2 mb-0">No users found or Hubstaff is unreachable.</p>
+    </div>
+  </div>
+<% else %>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Team</th>
+            <th>Role</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @users.each do |user| %>
+            <tr>
+              <td class="fw-semibold"><%= user[:name].presence || "—" %></td>
+              <td class="text-muted"><%= user[:email].presence || "—" %></td>
+              <td>
+                <% if user[:team_name].present? %>
+                  <span class="badge bg-primary bg-opacity-10 text-primary"><%= user[:team_name] %></span>
+                <% else %>
+                  <span class="badge bg-secondary bg-opacity-10 text-secondary">No team</span>
+                <% end %>
+              </td>
+              <td>
+                <span class="badge bg-light text-dark border"><%= user[:membership_role].presence || "member" %></span>
+              </td>
+              <td class="text-end">
+                <%= link_to new_admin_sync_path(user_id: user[:hubstaff_user_id]),
+                      class: "btn btn-sm btn-outline-primary" do %>
+                  <i class="bi bi-arrow-repeat"></i> Sync to Projects
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% end %>

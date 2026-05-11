@@ -19,41 +19,84 @@
     </div>
   </div>
 <% else %>
-  <div class="card">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Project Name</th>
-            <th>Hubstaff ID</th>
-            <th>Sheet Row</th>
-            <th>Tasks</th>
-            <th>Status</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @projects.each do |project| %>
-            <tr>
-              <td class="fw-semibold"><%= link_to project.name, admin_project_path(project), class: "text-decoration-none" %></td>
-              <td class="font-monospace text-muted"><%= project.hubstaff_project_id.presence || "—" %></td>
-              <td class="text-muted"><%= project.row_number.presence || "—" %></td>
-              <td><span class="badge bg-light text-dark border"><%= project.project_tasks.size %></span></td>
-              <td>
-                <% badge_class = case project.status
-                   when "active"   then "bg-success"
-                   when "pending"  then "bg-warning text-dark"
-                   when "failed"   then "bg-danger"
-                   when "archived" then "bg-secondary"
-                   else "bg-light text-dark border"
-                   end %>
-                <span class="badge <%= badge_class %>"><%= project.status %></span>
-              </td>
-              <td class="text-muted small"><%= project.created_at.strftime("%b %d, %H:%M") %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
+  <%= form_with url: bulk_resync_admin_projects_path, method: :post, id: "bulk-resync-form" do |f| %>
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <div class="text-muted small" id="selection-count">0 selected</div>
+      <%= f.button type: "submit", class: "btn btn-primary btn-sm", id: "bulk-resync-btn", disabled: true do %>
+        <i class="bi bi-arrow-repeat me-1"></i> Resync Tasks &amp; People
+      <% end %>
     </div>
-  </div>
+
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width:40px;">
+                <input type="checkbox" class="form-check-input" id="select-all" title="Select all">
+              </th>
+              <th>Project Name</th>
+              <th>Hubstaff ID</th>
+              <th>Sheet Row</th>
+              <th>Tasks</th>
+              <th>Status</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @projects.each do |project| %>
+              <tr>
+                <td>
+                  <% if project.hubstaff_project_id.present? && project.status == "active" %>
+                    <input type="checkbox" class="form-check-input project-checkbox" name="project_ids[]" value="<%= project.id %>">
+                  <% else %>
+                    <input type="checkbox" class="form-check-input" disabled title="No Hubstaff ID or not active">
+                  <% end %>
+                </td>
+                <td class="fw-semibold"><%= link_to project.name, admin_project_path(project), class: "text-decoration-none" %></td>
+                <td class="font-monospace text-muted"><%= project.hubstaff_project_id.presence || "—" %></td>
+                <td class="text-muted"><%= project.row_number.presence || "—" %></td>
+                <td><span class="badge bg-light text-dark border"><%= project.project_tasks.size %></span></td>
+                <td>
+                  <% badge_class = case project.status
+                     when "active"   then "bg-success"
+                     when "pending"  then "bg-warning text-dark"
+                     when "failed"   then "bg-danger"
+                     when "archived" then "bg-secondary"
+                     else "bg-light text-dark border"
+                     end %>
+                  <span class="badge <%= badge_class %>"><%= project.status %></span>
+                </td>
+                <td class="text-muted small"><%= project.created_at.strftime("%b %d, %H:%M") %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+
+  <script>
+    (function() {
+      const checkboxes = document.querySelectorAll('.project-checkbox');
+      const selectAll  = document.getElementById('select-all');
+      const btn        = document.getElementById('bulk-resync-btn');
+      const countEl    = document.getElementById('selection-count');
+
+      function updateState() {
+        const checked = document.querySelectorAll('.project-checkbox:checked').length;
+        btn.disabled = checked === 0;
+        countEl.textContent = checked === 0 ? '0 selected' : checked + ' selected';
+        selectAll.indeterminate = checked > 0 && checked < checkboxes.length;
+        selectAll.checked = checked === checkboxes.length && checkboxes.length > 0;
+      }
+
+      checkboxes.forEach(cb => cb.addEventListener('change', updateState));
+
+      selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => { cb.checked = this.checked; });
+        updateState();
+      });
+    })();
+  </script>
 <% end %>

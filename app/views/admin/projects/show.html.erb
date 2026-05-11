@@ -1,11 +1,18 @@
-<div class="d-flex align-items-center mb-4">
-  <%= link_to admin_projects_path, class: "btn btn-sm btn-outline-secondary me-3" do %>
-    <i class="bi bi-arrow-left"></i> Back
-  <% end %>
-  <div>
-    <h4 class="mb-0 fw-bold"><%= @project.name %></h4>
-    <p class="text-muted mb-0 small">Row <%= @project.row_number.presence || "—" %></p>
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div class="d-flex align-items-center">
+    <%= link_to admin_projects_path, class: "btn btn-sm btn-outline-secondary me-3" do %>
+      <i class="bi bi-arrow-left"></i> Back
+    <% end %>
+    <div>
+      <h4 class="mb-0 fw-bold"><%= @project.name %></h4>
+      <p class="text-muted mb-0 small">Row <%= @project.row_number.presence || "—" %></p>
+    </div>
   </div>
+  <% if @project.hubstaff_project_id.present? %>
+    <%= button_to resync_project_admin_project_path(@project), method: :post, class: "btn btn-outline-primary" do %>
+      <i class="bi bi-arrow-repeat me-1"></i> Resync Tasks &amp; People
+    <% end %>
+  <% end %>
 </div>
 
 <div class="row g-3 mb-4">

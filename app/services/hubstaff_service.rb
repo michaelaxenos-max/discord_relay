@@ -165,6 +165,21 @@ class HubstaffService
     end
   end
 
+  def sync_task_assignees(project_id)
+    tasks = get_project_tasks(project_id)
+    tasks.each do |task|
+      task_name = task["summary"]
+      team_name = task_team_name_from_db(task_name) || TASK_TEAM_MAP[task_name]
+      next unless team_name
+
+      current_assignees = task["assignee_ids"] || []
+      team_user_ids(team_name).each do |uid|
+        next if current_assignees.include?(uid)
+        add_assignee_to_task(task["id"], uid)
+      end
+    end
+  end
+
   private
 
   def access_token

@@ -23,7 +23,11 @@ Rails.application.routes.draw do
     resources :sync, only: [:new, :create]
     resources :project_resync, only: [:new, :create]
     resources :projects, only: [:index, :show] do
-      collection { post :resync }
+      collection do
+        post :resync
+        post :bulk_resync
+      end
+      member { post :resync_project }
     end
   end
 end

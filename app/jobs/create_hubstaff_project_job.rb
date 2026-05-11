@@ -11,6 +11,11 @@ class CreateHubstaffProjectJob < ApplicationJob
     SheetsWriter.write_by_header(row_number, "Hubstaff Project ID", "Error: Database connection failed, please retry")
   end
 
+  retry_on ActiveRecord::ConnectionNotEstablished, wait: 5.seconds, attempts: 3 do |job, error|
+    row_number = job.arguments.first["row_number"]
+    SheetsWriter.write_by_header(row_number, "Hubstaff Project ID", "Error: Database connection failed, please retry")
+  end
+
   def perform(project_name:, row_number:, dynamic_task: nil, hours: nil)
     project_id = HubstaffService.new.create_project_with_tasks(
       project_name: project_name,
@@ -21,6 +26,8 @@ class CreateHubstaffProjectJob < ApplicationJob
   rescue HubstaffService::RateLimitError
     raise
   rescue ActiveRecord::StatementInvalid
+    raise
+  rescue ActiveRecord::ConnectionNotEstablished
     raise
   rescue => e
     SheetsWriter.write_by_header(row_number, "Hubstaff Project ID", "Error: #{e.message}")

@@ -154,6 +154,10 @@ class HubstaffService
     all_projects
   end
 
+  def find_project_by_name(name)
+    org_projects(status: "active").find { |p| p["name"].to_s.strip.downcase == name.to_s.strip.downcase }
+  end
+
   def sync_tasks_to_project(project_id)
     existing_names = get_project_tasks(project_id).map { |t| t["summary"] }
     all_tasks      = build_task_list(nil)

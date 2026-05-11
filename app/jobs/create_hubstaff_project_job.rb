@@ -20,16 +20,30 @@ class CreateHubstaffProjectJob < ApplicationJob
   end
 
   def perform(project_name:, row_number:, dynamic_task: nil, hours: nil, project_record_id: nil)
-    record = Project.find_by(id: project_record_id)
+    record  = Project.find_by(id: project_record_id)
+    service = HubstaffService.new
 
-    project_id = HubstaffService.new.create_project_with_tasks(
-      project_name: project_name,
-      dynamic_task: dynamic_task,
-      hours:        hours
-    )
+    # Check our DB first
+    existing_record = Project.where.not(hubstaff_project_id: [nil, ""])
+                             .find_by("LOWER(name) = ?", project_name.to_s.strip.downcase)
+
+    project_id = if existing_record&.hubstaff_project_id.present?
+      record&.log("created", "Reused existing Hubstaff project (DB match) with ID #{existing_record.hubstaff_project_id}")
+      existing_record.hubstaff_project_id
+    elsif (hubstaff_match = service.find_project_by_name(project_name))
+      record&.log("created", "Reused existing Hubstaff project (API match) with ID #{hubstaff_match["id"]}")
+      hubstaff_match["id"].to_s
+    else
+      id = service.create_project_with_tasks(
+        project_name: project_name,
+        dynamic_task: dynamic_task,
+        hours:        hours
+      )
+      record&.log("created", "Hubstaff project created with ID #{id}")
+      id
+    end
 
     record&.update!(hubstaff_project_id: project_id.to_s, status: "active")
-    record&.log("created", "Hubstaff project created with ID #{project_id}")
     SheetsWriter.write_by_header(row_number, "Hubstaff Project ID", project_id)
     record&.log("sheet_written", "Project ID #{project_id} written to sheet row #{row_number}")
   rescue HubstaffService::RateLimitError

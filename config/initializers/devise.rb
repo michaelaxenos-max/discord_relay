@@ -1,6 +1,7 @@
 require "devise/orm/active_record"
 
 Devise.setup do |config|
+  config.parent_controller = "ActionController::Base"
   config.mailer_sender = "noreply@example.com"
   config.case_insensitive_keys = [:email]
   config.strip_whitespace_keys = [:email]

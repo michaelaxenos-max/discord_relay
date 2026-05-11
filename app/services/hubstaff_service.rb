@@ -116,7 +116,7 @@ class HubstaffService
     get("/teams/#{team_id}/members").fetch("team_members", []).map { |m| m["user_id"] }
   end
 
-  def add_member_to_project(project_id, user_id, role: "member")
+  def add_member_to_project(project_id, user_id, role: "user")
     role = "manager" if user_id == MANAGER_USER_ID
     post("/projects/#{project_id}/members", { user_id: user_id, role: role })
   rescue => e
@@ -175,7 +175,7 @@ class HubstaffService
   end
 
   def create_project(name, member_ids)
-    members = member_ids.map { |uid| { user_id: uid, role: uid == MANAGER_USER_ID ? "manager" : "member" } }
+    members = member_ids.map { |uid| { user_id: uid, role: uid == MANAGER_USER_ID ? "manager" : "user" } }
     response = post("/organizations/#{@org_id}/projects", { name: name, members: members })
     response.dig("project", "id") || raise("Failed to create project: #{response}")
   end

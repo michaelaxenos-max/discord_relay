@@ -138,6 +138,47 @@ class HubstaffService
     Rails.logger.error "Failed to add assignee #{user_id} to task #{task_id}: #{e.message}"
   end
 
+  def remove_assignee_from_task(task_id, user_id)
+    current = get("/tasks/#{task_id}").dig("task", "assignee_ids") || []
+    return unless current.include?(user_id)
+    put("/tasks/#{task_id}", { assignee_ids: current - [user_id] })
+  rescue => e
+    Rails.logger.error "Failed to remove assignee #{user_id} from task #{task_id}: #{e.message}"
+  end
+
+  def remove_member_from_project(project_id, user_id)
+    members = get("/projects/#{project_id}/members").fetch("project_members", [])
+    membership = members.find { |m| m["user_id"] == user_id }
+    return unless membership
+    conn.delete("#{BASE_URL}/projects/#{project_id}/members/#{membership["id"]}") do |req|
+      req.headers["Authorization"] = "Bearer #{access_token}"
+    end
+  rescue => e
+    Rails.logger.error "Failed to remove member #{user_id} from project #{project_id}: #{e.message}"
+  end
+
+  def add_task_to_project(project_id, task_name)
+    dynamic_names = TaskTemplate.where(dynamic: true).pluck(:name).to_set
+    team_name = task_team_name_from_db(task_name) || TASK_TEAM_MAP[task_name]
+    assignees = if EXCLUDED_TEAMS.include?(team_name)
+      []
+    elsif team_name
+      ids = team_user_ids(team_name)
+      ids.empty? ? non_excluded_member_ids : ids
+    else
+      non_excluded_member_ids
+    end
+    payload = { summary: task_name, assignee_ids: assignees }
+    response = post("/projects/#{project_id}/tasks", payload)
+    response.dig("task", "id") || raise("Failed to create task: #{response}")
+  end
+
+  def archive_task(task_id)
+    put("/tasks/#{task_id}", { status: "archived" })
+  rescue => e
+    Rails.logger.error "Failed to archive task #{task_id}: #{e.message}"
+  end
+
   def org_projects(status: "active")
     all_projects = []
     page_start_id = nil

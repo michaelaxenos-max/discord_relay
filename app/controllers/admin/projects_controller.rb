@@ -50,4 +50,40 @@ class Admin::ProjectsController < Admin::BaseController
     )
     redirect_to admin_project_path(@project), notice: "Resync queued for \"#{@project.name}\" — tasks and assignees will be updated shortly."
   end
+
+  def add_task
+    @project = Project.find(params[:id])
+    task_name = params[:task_name].to_s.strip
+
+    if task_name.blank?
+      redirect_to admin_project_path(@project), alert: "Task name can't be blank."
+      return
+    end
+
+    service = HubstaffService.new
+    task_id = service.add_task_to_project(@project.hubstaff_project_id, task_name)
+
+    dynamic_names = TaskTemplate.where(dynamic: true).pluck(:name).to_set
+    @project.project_tasks.create!(
+      hubstaff_task_id: task_id.to_s,
+      name:             task_name,
+      dynamic:          dynamic_names.include?(task_name)
+    )
+
+    redirect_to admin_project_path(@project), notice: "Task \"#{task_name}\" added."
+  rescue => e
+    redirect_to admin_project_path(@project), alert: "Failed to add task: #{e.message}"
+  end
+
+  def remove_task
+    @project = Project.find(params[:id])
+    task     = @project.project_tasks.find(params[:task_id])
+
+    HubstaffService.new.archive_task(task.hubstaff_task_id) if task.hubstaff_task_id.present?
+    task.destroy!
+
+    redirect_to admin_project_path(@project), notice: "Task \"#{task.name}\" removed."
+  rescue => e
+    redirect_to admin_project_path(@project), alert: "Failed to remove task: #{e.message}"
+  end
 end

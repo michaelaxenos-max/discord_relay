@@ -55,4 +55,47 @@ namespace :hubstaff do
 
     puts archived_count > 0 ? "\nMarked #{archived_count} project(s) as archived." : "All active DB projects are active in Hubstaff."
   end
+
+  desc "Remove vivasedmund@gmail.com from all projects and task assignees except Customer Support Service"
+  task remove_cs_user: :environment do
+    target_email  = "vivasedmund@gmail.com"
+    except_name   = "Customer Support Service"
+    service       = HubstaffService.new
+
+    # Find the user
+    member = service.org_members_with_users.find { |m| m[:email]&.downcase == target_email.downcase }
+    unless member
+      puts "User #{target_email} not found in org."
+      next
+    end
+    user_id = member[:hubstaff_user_id]
+    puts "Found: #{member[:name]} (ID: #{user_id})\n\n"
+
+    projects = service.org_projects(status: "active").reject { |p| p["name"].to_s.strip == except_name }
+    puts "Processing #{projects.size} projects (skipping \"#{except_name}\")...\n\n"
+
+    projects.each do |project|
+      pid  = project["id"]
+      name = project["name"]
+      removed_tasks    = 0
+      removed_member   = false
+
+      # Remove from task assignees
+      service.get_project_tasks(pid).each do |task|
+        next unless Array(task["assignee_ids"]).include?(user_id)
+        service.remove_assignee_from_task(task["id"], user_id)
+        removed_tasks += 1
+      end
+
+      # Remove from project members
+      service.remove_member_from_project(pid, user_id)
+      removed_member = true
+
+      if removed_tasks > 0 || removed_member
+        puts "  #{name}: removed from #{removed_tasks} task(s), removed as member"
+      end
+    end
+
+    puts "\nDone."
+  end
 end

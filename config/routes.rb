@@ -31,7 +31,11 @@ Rails.application.routes.draw do
         post :resync
         post :bulk_resync
       end
-      member { post :resync_project }
+      member do
+        post :resync_project
+        post :add_task
+        delete :remove_task
+      end
     end
   end
 end

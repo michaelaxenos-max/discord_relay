@@ -60,22 +60,48 @@
 <div class="card mb-4">
   <div class="card-header bg-white d-flex align-items-center justify-content-between">
     <span class="fw-semibold"><i class="bi bi-list-task text-primary me-1"></i> Tasks</span>
-    <span class="badge bg-secondary rounded-pill"><%= @tasks.size %></span>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-secondary rounded-pill"><%= @tasks.size %></span>
+      <% if @project.hubstaff_project_id.present? %>
+        <button class="btn btn-sm btn-outline-success" type="button" data-bs-toggle="collapse" data-bs-target="#add-task-form">
+          <i class="bi bi-plus-lg me-1"></i>Add Task
+        </button>
+      <% end %>
+    </div>
   </div>
+
+  <% if @project.hubstaff_project_id.present? %>
+    <div class="collapse" id="add-task-form">
+      <%= form_with url: add_task_admin_project_path(@project), method: :post, class: "card-body border-bottom d-flex gap-2 align-items-center py-2" do |f| %>
+        <%= f.text_field :task_name, class: "form-control form-control-sm", placeholder: "Task name…", required: true, autocomplete: "off" %>
+        <%= f.submit "Add", class: "btn btn-success btn-sm text-nowrap" %>
+      <% end %>
+    </div>
+  <% end %>
+
   <% if @tasks.empty? %>
     <div class="card-body text-center py-4 text-muted small">
-      No tasks synced yet. Run "Sync from Hubstaff" to populate.
+      No tasks synced yet. Run "Resync Tasks &amp; People" or add one above.
     </div>
   <% else %>
     <div class="list-group list-group-flush">
       <% @tasks.each do |task| %>
         <div class="list-group-item d-flex align-items-center justify-content-between py-2 px-3">
           <span class="small"><%= task.name %></span>
-          <% if task.dynamic? %>
-            <span class="badge bg-warning text-dark ms-2">Dynamic</span>
-          <% else %>
-            <span class="badge bg-light text-secondary border ms-2">Fixed</span>
-          <% end %>
+          <div class="d-flex align-items-center gap-2">
+            <% if task.dynamic? %>
+              <span class="badge bg-warning text-dark">Dynamic</span>
+            <% else %>
+              <span class="badge bg-light text-secondary border">Fixed</span>
+            <% end %>
+            <%= button_to remove_task_admin_project_path(@project, task_id: task.id),
+                  method: :delete,
+                  class: "btn btn-sm btn-outline-danger border-0 py-0 px-1",
+                  form: { data: { turbo_confirm: "Remove \"#{task.name}\" from this project?" } },
+                  title: "Remove task" do %>
+              <i class="bi bi-trash3"></i>
+            <% end %>
+          </div>
         </div>
       <% end %>
     </div>

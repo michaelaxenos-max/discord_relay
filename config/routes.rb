@@ -14,6 +14,8 @@ Rails.application.routes.draw do
     path_names: { sign_in: "login", sign_out: "logout" },
     controllers: { sessions: "admin/sessions" }
 
+  mount MissionControl::Jobs::Engine, at: "/admin/jobs"
+
   namespace :admin do
     root to: "dashboard#index"
     resources :teams, only: [:index] do

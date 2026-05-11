@@ -27,6 +27,13 @@
         <input type="text" id="project-search" class="form-control form-control-sm"
                placeholder="Search by name or Hubstaff ID…" autocomplete="off">
       </div>
+      <select id="status-filter" class="form-select form-select-sm" style="width:auto;">
+        <option value="">All statuses</option>
+        <option value="active">Active</option>
+        <option value="pending">Pending</option>
+        <option value="failed">Failed</option>
+        <option value="archived">Archived</option>
+      </select>
       <span class="text-muted small text-nowrap" id="showing-count"></span>
       <span class="text-muted small text-nowrap" id="selection-count">0 selected</span>
       <button type="submit" class="btn btn-primary btn-sm text-nowrap" id="bulk-resync-btn" disabled>
@@ -103,19 +110,22 @@
       var sortCol     = 'created';
       var sortDir     = -1; // -1 = desc (newest first)
 
-      var searchInput  = document.getElementById('project-search');
-      var countEl      = document.getElementById('selection-count');
-      var showingEl    = document.getElementById('showing-count');
-      var btn          = document.getElementById('bulk-resync-btn');
-      var selectAll    = document.getElementById('select-all');
-      var paginationEl = document.getElementById('pagination');
-      var tbody        = document.getElementById('projects-tbody');
+      var searchInput   = document.getElementById('project-search');
+      var statusFilter  = document.getElementById('status-filter');
+      var countEl       = document.getElementById('selection-count');
+      var showingEl     = document.getElementById('showing-count');
+      var btn           = document.getElementById('bulk-resync-btn');
+      var selectAll     = document.getElementById('select-all');
+      var paginationEl  = document.getElementById('pagination');
+      var tbody         = document.getElementById('projects-tbody');
+      var statusQuery   = '';
 
       function allRows() {
         return Array.from(document.querySelectorAll('tr.project-row'));
       }
 
       function matchesSearch(row) {
+        if (statusQuery && row.dataset.status !== statusQuery) return false;
         if (!searchQuery) return true;
         return row.dataset.name.includes(searchQuery) ||
                row.dataset.hubstaffId.includes(searchQuery);
@@ -238,6 +248,13 @@
       // Search
       searchInput.addEventListener('input', function () {
         searchQuery = this.value.trim().toLowerCase();
+        currentPage = 1;
+        render();
+      });
+
+      // Status filter
+      statusFilter.addEventListener('change', function () {
+        statusQuery = this.value;
         currentPage = 1;
         render();
       });

@@ -262,8 +262,10 @@ class HubstaffService
 
     all_tasks.each do |task_name|
       next if existing_names.include?(task_name)
-      payload = build_task_payload(task_name, nil, nil)
-      post("/projects/#{project_id}/tasks", payload)
+      payload  = build_task_payload(task_name, nil, nil)
+      response = post("/projects/#{project_id}/tasks", payload)
+      task_id  = response.dig("task", "id")
+      persist_task_to_db(project_id, task_name, task_id) if task_id
     end
   end
 
@@ -346,8 +348,10 @@ class HubstaffService
   def create_tasks(project_id, dynamic_task, hours)
     tasks = build_task_list(dynamic_task)
     tasks.each do |task_name|
-      payload = build_task_payload(task_name, dynamic_task, hours)
-      post("/projects/#{project_id}/tasks", payload)
+      payload  = build_task_payload(task_name, dynamic_task, hours)
+      response = post("/projects/#{project_id}/tasks", payload)
+      task_id  = response.dig("task", "id")
+      persist_task_to_db(project_id, task_name, task_id) if task_id
     end
   end
 
@@ -396,6 +400,20 @@ class HubstaffService
     end
 
     payload
+  end
+
+  def persist_task_to_db(hubstaff_project_id, task_name, hubstaff_task_id)
+    project = Project.find_by(hubstaff_project_id: hubstaff_project_id.to_s)
+    return unless project
+
+    dynamic_names = TaskTemplate.where(dynamic: true).pluck(:name).to_set
+    ProjectTask.find_or_initialize_by(project: project, hubstaff_task_id: hubstaff_task_id.to_s).tap do |pt|
+      pt.name    = task_name
+      pt.dynamic = dynamic_names.include?(task_name)
+      pt.save!
+    end
+  rescue => e
+    Rails.logger.warn "persist_task_to_db failed for project #{hubstaff_project_id} / task #{task_name}: #{e.message}"
   end
 
   def task_names_for_team(team_name)

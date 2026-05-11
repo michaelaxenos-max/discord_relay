@@ -1,0 +1,35 @@
+<div class="mb-4">
+  <h4 class="mb-0 fw-bold">Account Settings</h4>
+  <p class="text-muted small mb-0"><%= current_admin_user.email %></p>
+</div>
+
+<div class="card" style="max-width:480px;">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-lock me-1 text-primary"></i> Change Password
+  </div>
+  <div class="card-body p-4">
+    <%= form_with model: current_admin_user, url: admin_account_path, method: :patch, local: true do |f| %>
+      <% if current_admin_user.errors.any? %>
+        <div class="alert alert-danger">
+          <% current_admin_user.errors.full_messages.each do |msg| %>
+            <div><%= msg %></div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <div class="mb-3">
+        <%= f.label :current_password, "Current Password", class: "form-label fw-semibold" %>
+        <%= f.password_field :current_password, class: "form-control", autocomplete: "current-password" %>
+      </div>
+      <div class="mb-3">
+        <%= f.label :password, "New Password", class: "form-label fw-semibold" %>
+        <%= f.password_field :password, class: "form-control", autocomplete: "new-password" %>
+      </div>
+      <div class="mb-4">
+        <%= f.label :password_confirmation, "Confirm New Password", class: "form-label fw-semibold" %>
+        <%= f.password_field :password_confirmation, class: "form-control", autocomplete: "new-password" %>
+      </div>
+      <%= f.submit "Update Password", class: "btn btn-primary w-100" %>
+    <% end %>
+  </div>
+</div>

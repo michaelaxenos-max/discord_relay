@@ -62,6 +62,10 @@
                class="nav-link <%= 'active' if controller_name == 'dashboard' %>">
               <i class="bi bi-people-fill"></i> Users
             </a>
+            <a href="<%= admin_admin_users_path %>"
+               class="nav-link <%= 'active' if controller_name == 'admin_users' %>">
+              <i class="bi bi-shield-person"></i> Admin Users
+            </a>
             <a href="<%= admin_teams_path %>"
                class="nav-link <%= 'active' if %w[teams task_templates].include?(controller_name) %>">
               <i class="bi bi-diagram-3-fill"></i> Teams &amp; Tasks
@@ -81,6 +85,8 @@
           <% if admin_user_signed_in? %>
             <div class="mt-auto px-3 pb-3">
               <small class="text-secondary d-block mb-2 text-truncate"><%= current_admin_user.email %></small>
+              <%= link_to "Account Settings", edit_admin_account_path,
+                    class: "btn btn-sm btn-outline-secondary w-100 mb-2" %>
               <%= button_to "Log out", destroy_admin_user_session_path,
                     method: :delete,
                     class: "btn btn-sm btn-outline-secondary w-100" %>

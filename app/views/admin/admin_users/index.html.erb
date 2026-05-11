@@ -1,0 +1,41 @@
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold">Admin Users</h4>
+    <p class="text-muted mb-0 small">People with access to this panel</p>
+  </div>
+  <%= link_to new_admin_admin_user_path, class: "btn btn-primary" do %>
+    <i class="bi bi-person-plus me-1"></i> Add User
+  <% end %>
+</div>
+
+<div class="card">
+  <% if @admin_users.empty? %>
+    <div class="card-body text-center py-5 text-muted">No admin users yet.</div>
+  <% else %>
+    <div class="list-group list-group-flush">
+      <% @admin_users.each do |user| %>
+        <div class="list-group-item d-flex align-items-center justify-content-between py-3 px-4">
+          <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-person-circle text-secondary" style="font-size:1.4rem;"></i>
+            <div>
+              <div class="fw-semibold"><%= user.email %></div>
+              <div class="text-muted small">
+                Added <time data-utc="<%= user.created_at.utc.iso8601 %>"><%= user.created_at.utc.strftime("%b %d, %Y") %></time>
+                <% if user == current_admin_user %>
+                  <span class="badge bg-primary ms-2">You</span>
+                <% end %>
+              </div>
+            </div>
+          </div>
+          <% if user != current_admin_user %>
+            <%= button_to admin_admin_user_path(user), method: :delete,
+                  class: "btn btn-sm btn-outline-danger",
+                  data: { turbo_confirm: "Remove #{user.email}? They will lose access immediately." } do %>
+              <i class="bi bi-trash"></i>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>

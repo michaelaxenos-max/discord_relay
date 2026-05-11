@@ -17,6 +17,8 @@ Rails.application.routes.draw do
   mount MissionControl::Jobs::Engine, at: "/admin/jobs"
 
   namespace :admin do
+    resources :admin_users, only: [:index, :new, :create, :destroy]
+    resource :account, only: [:edit, :update]
     root to: "dashboard#index"
     resources :teams, only: [:index] do
       collection { post :resync }

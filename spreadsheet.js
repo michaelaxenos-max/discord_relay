@@ -1,7 +1,7 @@
 // Requires RELAY_URL set in Script Properties (same as test.js)
 
-function createHubstaffProject(projectName, dynamicTask, hours) {
-  const payload = { project_name: projectName };
+function createHubstaffProject(projectName, rowNumber, dynamicTask, hours) {
+  const payload = { project_name: projectName, row_number: rowNumber };
 
   if (dynamicTask) payload.dynamic_task = dynamicTask;
   if (hours)       payload.hours = hours;
@@ -9,10 +9,8 @@ function createHubstaffProject(projectName, dynamicTask, hours) {
   const result = callDiscordRelay("api/projects", payload);
 
   if (!result.success) {
-    throw new Error("Failed to create Hubstaff project: " + JSON.stringify(result));
+    throw new Error("Failed to queue Hubstaff project: " + JSON.stringify(result));
   }
-
-  return result.project_id;
 }
 
 function deleteHubstaffProject(projectId) {
@@ -106,11 +104,10 @@ function onProjectRowAdded(e) {
   projectIdCell.setValue("pending");
   SpreadsheetApp.flush();
 
-  Logger.log(`Creating Hubstaff project for: "${funnelName}"`);
+  Logger.log(`Queueing Hubstaff project for: "${funnelName}" (row ${row})`);
   try {
-    const projectId = createHubstaffProject(funnelName);
-    projectIdCell.setValue(projectId);
-    Logger.log(`Project created successfully. ID: ${projectId}`);
+    createHubstaffProject(funnelName, row);
+    Logger.log(`Project queued. Server will write the ID back to row ${row}.`);
   } catch (err) {
     projectIdCell.setValue(""); // release the lock on failure
     Logger.log(`Hubstaff project creation failed: ${err.message}`);

@@ -20,5 +20,6 @@ Rails.application.routes.draw do
       resources :task_templates, shallow: true
     end
     resources :sync, only: [:new, :create]
+    resources :project_resync, only: [:new, :create]
   end
 end

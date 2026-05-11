@@ -138,6 +138,17 @@ class HubstaffService
     Rails.logger.error "Failed to add assignee #{user_id} to task #{task_id}: #{e.message}"
   end
 
+  def sync_tasks_to_project(project_id)
+    existing_names = get_project_tasks(project_id).map { |t| t["summary"] }
+    all_tasks      = build_task_list(nil)
+
+    all_tasks.each do |task_name|
+      next if existing_names.include?(task_name)
+      payload = build_task_payload(task_name, nil, nil)
+      post("/projects/#{project_id}/tasks", payload)
+    end
+  end
+
   private
 
   def access_token

@@ -1,0 +1,35 @@
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="d-flex align-items-center mb-4">
+      <%= link_to admin_root_path, class: "btn btn-sm btn-outline-secondary me-3" do %>
+        <i class="bi bi-arrow-left"></i> Back
+      <% end %>
+      <div>
+        <h4 class="mb-0 fw-bold">Resync Tasks to Project</h4>
+        <p class="text-muted mb-0 small">Adds any missing tasks to existing Hubstaff projects</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-list-check text-primary me-1"></i> Project IDs
+      </div>
+      <div class="card-body p-4">
+        <%= form_with url: admin_project_resync_index_path, method: :post do |f| %>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Project IDs <span class="text-muted fw-normal">(one per line)</span></label>
+            <%= f.text_area :project_ids,
+                  rows: 10,
+                  class: "form-control font-monospace",
+                  placeholder: "12345\n67890\n11111" %>
+            <div class="form-text">
+              Only tasks that don't already exist on the project will be created.
+            </div>
+          </div>
+
+          <%= f.submit "Resync Tasks", class: "btn btn-primary w-100 fw-semibold" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

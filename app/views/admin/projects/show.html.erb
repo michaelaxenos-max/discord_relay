@@ -50,6 +50,31 @@
   </div>
 </div>
 
+<div class="card mb-4">
+  <div class="card-header bg-white d-flex align-items-center justify-content-between">
+    <span class="fw-semibold"><i class="bi bi-list-task text-primary me-1"></i> Tasks</span>
+    <span class="badge bg-secondary rounded-pill"><%= @tasks.size %></span>
+  </div>
+  <% if @tasks.empty? %>
+    <div class="card-body text-center py-4 text-muted small">
+      No tasks synced yet. Run "Sync from Hubstaff" to populate.
+    </div>
+  <% else %>
+    <div class="list-group list-group-flush">
+      <% @tasks.each do |task| %>
+        <div class="list-group-item d-flex align-items-center justify-content-between py-2 px-3">
+          <span class="small"><%= task.name %></span>
+          <% if task.dynamic? %>
+            <span class="badge bg-warning text-dark ms-2">Dynamic</span>
+          <% else %>
+            <span class="badge bg-light text-secondary border ms-2">Fixed</span>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+
 <div class="card">
   <div class="card-header bg-white fw-semibold">
     <i class="bi bi-clock-history text-primary me-1"></i> Activity Log

@@ -1,7 +1,8 @@
 class Project < ApplicationRecord
   STATUSES = %w[pending active archived failed].freeze
 
-  has_many :project_logs, dependent: :destroy
+  has_many :project_logs,  dependent: :destroy
+  has_many :project_tasks, dependent: :destroy
 
   validates :name, presence: true
   validates :status, inclusion: { in: STATUSES }

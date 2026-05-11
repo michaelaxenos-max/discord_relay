@@ -27,6 +27,7 @@
             <th>Project Name</th>
             <th>Hubstaff ID</th>
             <th>Sheet Row</th>
+            <th>Tasks</th>
             <th>Status</th>
             <th>Created</th>
           </tr>
@@ -37,6 +38,7 @@
               <td class="fw-semibold"><%= link_to project.name, admin_project_path(project), class: "text-decoration-none" %></td>
               <td class="font-monospace text-muted"><%= project.hubstaff_project_id.presence || "—" %></td>
               <td class="text-muted"><%= project.row_number.presence || "—" %></td>
+              <td><span class="badge bg-light text-dark border"><%= project.project_tasks.size %></span></td>
               <td>
                 <% badge_class = case project.status
                    when "active"   then "bg-success"

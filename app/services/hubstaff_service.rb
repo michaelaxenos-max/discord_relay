@@ -131,17 +131,19 @@ class HubstaffService
   end
 
   def add_assignee_to_task(task_id, user_id)
-    current = get("/tasks/#{task_id}").dig("task", "assignee_ids") || []
+    task_data = get("/tasks/#{task_id}").fetch("task", {})
+    current   = task_data["assignee_ids"] || []
     return if current.include?(user_id)
-    put("/tasks/#{task_id}", { assignee_ids: current + [user_id] })
+    put("/tasks/#{task_id}", { assignee_ids: current + [user_id], lock_version: task_data["lock_version"] })
   rescue => e
     Rails.logger.error "Failed to add assignee #{user_id} to task #{task_id}: #{e.message}"
   end
 
   def remove_assignee_from_task(task_id, user_id)
-    current = get("/tasks/#{task_id}").dig("task", "assignee_ids") || []
+    task_data = get("/tasks/#{task_id}").fetch("task", {})
+    current   = task_data["assignee_ids"] || []
     return unless current.include?(user_id)
-    put("/tasks/#{task_id}", { assignee_ids: current - [user_id] })
+    put("/tasks/#{task_id}", { assignee_ids: current - [user_id], lock_version: task_data["lock_version"] })
   rescue => e
     Rails.logger.error "Failed to remove assignee #{user_id} from task #{task_id}: #{e.message}"
   end
@@ -157,19 +159,19 @@ class HubstaffService
     Rails.logger.error "Failed to remove member #{user_id} from project #{project_id}: #{e.message}"
   end
 
-  def add_task_to_project(project_id, task_name)
-    dynamic_names = TaskTemplate.where(dynamic: true).pluck(:name).to_set
-    team_name = task_team_name_from_db(task_name) || TASK_TEAM_MAP[task_name]
-    assignees = if EXCLUDED_TEAMS.include?(team_name)
-      []
-    elsif team_name
-      ids = team_user_ids(team_name)
-      ids.empty? ? non_excluded_member_ids : ids
-    else
-      non_excluded_member_ids
+  def add_task_to_project(project_id, task_name, assignee_ids: nil)
+    if assignee_ids.nil?
+      team_name = task_team_name_from_db(task_name) || TASK_TEAM_MAP[task_name]
+      assignee_ids = if EXCLUDED_TEAMS.include?(team_name)
+        []
+      elsif team_name
+        ids = team_user_ids(team_name)
+        ids.empty? ? non_excluded_member_ids : ids
+      else
+        non_excluded_member_ids
+      end
     end
-    payload = { summary: task_name, assignee_ids: assignees }
-    response = post("/projects/#{project_id}/tasks", payload)
+    response = post("/projects/#{project_id}/tasks", { summary: task_name, assignee_ids: assignee_ids })
     response.dig("task", "id") || raise("Failed to create task: #{response}")
   end
 

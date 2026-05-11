@@ -51,17 +51,51 @@ class Admin::ProjectsController < Admin::BaseController
     redirect_to admin_project_path(@project), notice: "Resync queued for \"#{@project.name}\" — tasks and assignees will be updated shortly."
   end
 
-  def add_task
+  def new_task
     @project = Project.find(params[:id])
-    task_name = params[:task_name].to_s.strip
+    service  = HubstaffService.new
+
+    members  = service.org_members_with_users.select { |m| m[:name].present? }
+    teams    = service.org_teams
+
+    # Build user_id -> [team_names] map
+    team_by_user = {}
+    teams.each do |team|
+      service.team_member_ids(team["id"]).each do |uid|
+        team_by_user[uid] ||= []
+        team_by_user[uid] << team["name"]
+      end
+    end
+
+    members_with_team = members.map { |m| m.merge(team: (team_by_user[m[:hubstaff_user_id]] || []).first || "No Team") }
+
+    team_order = ["Funnel Builders", "Editor", "Facebook Launcher", "Customer Support"]
+
+    @members_by_team = members_with_team
+      .sort_by { |m| m[:name] }
+      .group_by { |m| m[:team] }
+      .sort_by  { |team, _| [team_order.index(team) || 99, team] }
+      .to_h
+  rescue => e
+    redirect_to admin_project_path(@project), alert: "Failed to load members: #{e.message}"
+  end
+
+  def add_task
+    @project     = Project.find(params[:id])
+    task_name    = params[:task_name].to_s.strip
+    assignee_ids = Array(params[:assignee_ids]).map(&:to_i).reject(&:zero?)
 
     if task_name.blank?
-      redirect_to admin_project_path(@project), alert: "Task name can't be blank."
+      redirect_to new_task_admin_project_path(@project), alert: "Task name can't be blank."
       return
     end
 
     service = HubstaffService.new
-    task_id = service.add_task_to_project(@project.hubstaff_project_id, task_name)
+    task_id = service.add_task_to_project(
+      @project.hubstaff_project_id,
+      task_name,
+      assignee_ids: assignee_ids.presence
+    )
 
     dynamic_names = TaskTemplate.where(dynamic: true).pluck(:name).to_set
     @project.project_tasks.create!(

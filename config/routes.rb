@@ -33,6 +33,7 @@ Rails.application.routes.draw do
       end
       member do
         post :resync_project
+        get  :new_task
         post :add_task
         delete :remove_task
       end

@@ -56,6 +56,7 @@ class HubstaffService
   }.freeze
 
   MANAGER_USER_ID = 3517608 # Michael Xenos
+  EXCLUDED_TEAMS  = ["Customer Support"].freeze
 
   def initialize
     @refresh_token = ENV.fetch("HUBSTAFF_REFRESH_TOKEN")
@@ -79,8 +80,7 @@ class HubstaffService
       raise ArgumentError, "Invalid dynamic task: #{dynamic_task}. Must be one of: #{dynamic_task_names.join(', ')}"
     end
 
-    all_member_ids = org_member_ids
-    project_id     = create_project(project_name, all_member_ids)
+    project_id = create_project(project_name, non_excluded_member_ids)
     create_tasks(project_id, dynamic_task, hours)
     project_id
   end
@@ -175,6 +175,7 @@ class HubstaffService
       task_name = task["summary"]
       team_name = task_team_name_from_db(task_name) || TASK_TEAM_MAP[task_name]
       next unless team_name
+      next if EXCLUDED_TEAMS.include?(team_name)
 
       current_assignees = task["assignee_ids"] || []
       team_user_ids(team_name).each do |uid|
@@ -208,6 +209,14 @@ class HubstaffService
       resp = get("/organizations/#{@org_id}/members")
       resp.fetch("members", []).map { |m| m["user_id"] }
     end
+  end
+
+  def excluded_member_ids
+    @excluded_member_ids ||= EXCLUDED_TEAMS.flat_map { |t| team_user_ids(t) }.to_set
+  end
+
+  def non_excluded_member_ids
+    org_member_ids.reject { |id| excluded_member_ids.include?(id) }
   end
 
   def team_user_ids(team_name)
@@ -262,10 +271,15 @@ class HubstaffService
   end
 
   def build_task_payload(task_name, dynamic_task, hours)
-    # Try DB first for team mapping
     team_name = task_team_name_from_db(task_name) || TASK_TEAM_MAP[task_name]
-    assignees = team_name ? team_user_ids(team_name) : []
-    assignees = org_member_ids if assignees.empty?
+    assignees = if EXCLUDED_TEAMS.include?(team_name)
+      []
+    elsif team_name
+      ids = team_user_ids(team_name)
+      ids.empty? ? non_excluded_member_ids : ids
+    else
+      non_excluded_member_ids
+    end
 
     payload = { summary: task_name, assignee_ids: assignees }
 

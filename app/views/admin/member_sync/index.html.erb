@@ -77,15 +77,14 @@
           <div class="card-body text-muted small">
             <p class="mb-1">For each selected member + project:</p>
             <ol class="mb-0 ps-3">
-              <li>Checks existing tasks in the project</li>
-              <li>For tasks matching their team, checks if they're already assigned</li>
-              <li>If not assigned → creates a new task assigned only to them</li>
-              <li>If already assigned → skips (no duplicate)</li>
+              <li>Finds existing tasks matching their team</li>
+              <li>If already assigned → skips</li>
+              <li>If not assigned → adds them to the task</li>
             </ol>
           </div>
         </div>
 
-        <%= f.submit "Create Tasks", class: "btn btn-success w-100" %>
+        <%= f.submit "Sync Members to Tasks", class: "btn btn-success w-100" %>
       </div>
     </div>
   <% end %>

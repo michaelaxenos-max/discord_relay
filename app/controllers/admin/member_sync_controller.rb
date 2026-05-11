@@ -31,6 +31,6 @@ class Admin::MemberSyncController < Admin::BaseController
     end
 
     redirect_to admin_member_sync_index_path,
-      notice: "Sync queued for #{members.size} member(s) across #{project_ids.size} project(s) — check Job Queues for progress."
+      notice: "Queued #{members.size} member(s) across #{project_ids.size} project(s) — they will be added to existing tasks. Check Job Queues for progress."
   end
 end

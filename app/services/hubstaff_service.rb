@@ -115,21 +115,26 @@ class HubstaffService
   end
 
   def create_user_tasks_for_project(project_id, user_id, team_name)
-    task_names   = task_names_for_team(team_name)
-    existing     = get_project_tasks(project_id)
-    created      = 0
+    task_names = task_names_for_team(team_name)
+    existing   = get_project_tasks(project_id)
+    added      = 0
 
     task_names.each do |task_name|
-      already_assigned = existing.any? do |t|
-        t["summary"] == task_name && (t["assignee_ids"] || []).include?(user_id)
-      end
-      next if already_assigned
+      task = existing.find { |t| t["summary"] == task_name }
+      next unless task
+      next if (task["assignee_ids"] || []).include?(user_id)
 
-      post("/projects/#{project_id}/tasks", { summary: task_name, assignee_ids: [user_id] })
-      created += 1
+      task_detail = get("/tasks/#{task["id"]}").fetch("task", {})
+      put("/tasks/#{task["id"]}", {
+        assignee_ids: (task_detail["assignee_ids"] || []) + [user_id],
+        lock_version: task_detail["lock_version"],
+        summary:      task_detail["summary"],
+        status:       task_detail["status"] || "active"
+      })
+      added += 1
     end
 
-    created
+    added
   end
 
   def org_members_with_users

@@ -147,7 +147,7 @@
         var av = colValue(a, sortCol), bv = colValue(b, sortCol);
         if (av < bv) return -sortDir;
         if (av > bv) return  sortDir;
-        return 0;
+        return parseInt(a.dataset.projectId) - parseInt(b.dataset.projectId);
       }
 
       function getFilteredSorted() {

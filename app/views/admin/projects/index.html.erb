@@ -143,12 +143,7 @@
       function getFilteredSorted() {
         return allRows()
           .filter(matchesSearch)
-          .sort(function (a, b) {
-            var aS = selectedIds.has(a.dataset.projectId);
-            var bS = selectedIds.has(b.dataset.projectId);
-            if (aS !== bS) return aS ? -1 : 1;
-            return compareRows(a, b);
-          });
+          .sort(compareRows);
       }
 
       function updateSortHeaders() {

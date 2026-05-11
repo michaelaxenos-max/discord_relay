@@ -114,5 +114,16 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmRmQfM8s+ixBLO6a5UzK7MnJed"
             crossorigin="anonymous"></script>
+    <script>
+      document.querySelectorAll('time[data-utc]').forEach(function(el) {
+        var d = new Date(el.dataset.utc);
+        if (isNaN(d)) return;
+        el.textContent = new Intl.DateTimeFormat(undefined, {
+          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hour12: false
+        }).format(d);
+        el.title = d.toISOString() + ' UTC';
+      });
+    </script>
   </body>
 </html>

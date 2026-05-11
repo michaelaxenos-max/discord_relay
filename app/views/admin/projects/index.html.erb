@@ -67,7 +67,7 @@
                      end %>
                   <span class="badge <%= badge_class %>"><%= project.status %></span>
                 </td>
-                <td class="text-muted small"><%= project.created_at.strftime("%b %d, %H:%M") %></td>
+                <td class="text-muted small"><time data-utc="<%= project.created_at.utc.iso8601 %>"><%= project.created_at.utc.strftime("%b %d, %H:%M") %></time></td>
               </tr>
             <% end %>
           </tbody>

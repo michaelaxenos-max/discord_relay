@@ -51,7 +51,7 @@
     <div class="card h-100">
       <div class="card-body">
         <div class="text-muted small mb-1">Created</div>
-        <div class="fw-semibold"><%= @project.created_at.strftime("%b %d, %Y %H:%M") %></div>
+        <div class="fw-semibold"><time data-utc="<%= @project.created_at.utc.iso8601 %>"><%= @project.created_at.utc.strftime("%b %d, %Y %H:%M") %></time></div>
       </div>
     </div>
   </div>
@@ -107,7 +107,7 @@
           <div class="flex-grow-1">
             <div class="d-flex justify-content-between align-items-start">
               <span class="fw-semibold text-capitalize"><%= log.event.gsub("_", " ") %></span>
-              <small class="text-muted ms-3 text-nowrap"><%= log.created_at.strftime("%b %d, %H:%M:%S") %></small>
+              <small class="text-muted ms-3 text-nowrap"><time data-utc="<%= log.created_at.utc.iso8601 %>"><%= log.created_at.utc.strftime("%b %d, %H:%M:%S") %></time></small>
             </div>
             <% if log.message.present? %>
               <div class="text-muted small mt-1 font-monospace" style="word-break:break-all;"><%= log.message %></div>

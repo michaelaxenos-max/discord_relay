@@ -115,6 +115,11 @@ class HubstaffService
   end
 
   def create_user_tasks_for_project(project_id, user_id, team_name)
+    members = get("/projects/#{project_id}/members").fetch("members", [])
+    unless members.any? { |m| m["user_id"] == user_id }
+      add_member_to_project(project_id, user_id)
+    end
+
     task_names = task_names_for_team(team_name)
     existing   = get_project_tasks(project_id)
     added      = 0

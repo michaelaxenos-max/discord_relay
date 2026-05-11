@@ -50,18 +50,16 @@ class SyncProjectsFromHubstaffJob < ApplicationJob
     dynamic_names = TaskTemplate.where(dynamic: true).pluck(:name).to_set
 
     tasks.each do |task|
-      task_id   = task["id"].to_s
       task_name = task["summary"].to_s
-
-      ProjectTask.find_or_create_by!(
-        project:         project_record,
-        hubstaff_task_id: task_id
-      ) do |t|
-        t.name    = task_name
-        t.dynamic = dynamic_names.include?(task_name)
-      end
+      pt = ProjectTask.find_or_initialize_by(
+        project:          project_record,
+        hubstaff_task_id: task["id"].to_s
+      )
+      pt.name    = task_name
+      pt.dynamic = dynamic_names.include?(task_name)
+      pt.save!
     end
   rescue => e
-    Rails.logger.warn "SyncProjectsFromHubstaffJob: task sync failed for project #{hubstaff_project_id} — #{e.message}"
+    Rails.logger.error "SyncProjectsFromHubstaffJob: task sync failed for project #{hubstaff_project_id} — #{e.message}"
   end
 end

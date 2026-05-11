@@ -22,15 +22,15 @@ class ResyncProjectJob < ApplicationJob
     dynamic_names = TaskTemplate.where(dynamic: true).pluck(:name).to_set
 
     tasks.each do |task|
-      ProjectTask.find_or_create_by!(
+      pt = ProjectTask.find_or_initialize_by(
         project:          project_record,
         hubstaff_task_id: task["id"].to_s
-      ) do |t|
-        t.name    = task["summary"].to_s
-        t.dynamic = dynamic_names.include?(task["summary"].to_s)
-      end
+      )
+      pt.name    = task["summary"].to_s
+      pt.dynamic = dynamic_names.include?(task["summary"].to_s)
+      pt.save!
     end
   rescue => e
-    Rails.logger.warn "ResyncProjectJob: DB task sync failed — #{e.message}"
+    Rails.logger.error "ResyncProjectJob: DB task sync failed — #{e.message}\n#{e.backtrace.first(5).join("\n")}"
   end
 end

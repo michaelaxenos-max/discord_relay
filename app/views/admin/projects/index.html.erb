@@ -19,12 +19,19 @@
     </div>
   </div>
 <% else %>
-  <%= form_with url: bulk_resync_admin_projects_path, method: :post, id: "bulk-resync-form" do |f| %>
-    <div class="d-flex align-items-center justify-content-between mb-2">
-      <div class="text-muted small" id="selection-count">0 selected</div>
-      <%= f.button type: "submit", class: "btn btn-primary btn-sm", id: "bulk-resync-btn", disabled: true do %>
+  <%= form_with url: bulk_resync_admin_projects_path, method: :post, id: "bulk-resync-form" do %>
+    <div id="selected-inputs-container"></div>
+
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <div class="flex-grow-1">
+        <input type="text" id="project-search" class="form-control form-control-sm"
+               placeholder="Search by name or Hubstaff ID…" autocomplete="off">
+      </div>
+      <span class="text-muted small text-nowrap" id="showing-count"></span>
+      <span class="text-muted small text-nowrap" id="selection-count">0 selected</span>
+      <button type="submit" class="btn btn-primary btn-sm text-nowrap" id="bulk-resync-btn" disabled>
         <i class="bi bi-arrow-repeat me-1"></i> Resync Tasks &amp; People
-      <% end %>
+      </button>
     </div>
 
     <div class="card">
@@ -33,7 +40,7 @@
           <thead class="table-light">
             <tr>
               <th style="width:40px;">
-                <input type="checkbox" class="form-check-input" id="select-all" title="Select all">
+                <input type="checkbox" class="form-check-input" id="select-all" title="Select all on this page">
               </th>
               <th>Project Name</th>
               <th>Hubstaff ID</th>
@@ -43,18 +50,21 @@
               <th>Created</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="projects-tbody">
             <% @projects.each do |project| %>
-              <tr>
+              <% can_resync = project.hubstaff_project_id.present? && project.status == "active" %>
+              <tr class="project-row"
+                  data-project-id="<%= project.id %>"
+                  data-name="<%= project.name.downcase %>"
+                  data-hubstaff-id="<%= project.hubstaff_project_id.to_s.downcase %>"
+                  data-can-resync="<%= can_resync %>">
                 <td>
-                  <% if project.hubstaff_project_id.present? && project.status == "active" %>
-                    <input type="checkbox" class="form-check-input project-checkbox" name="project_ids[]" value="<%= project.id %>">
-                  <% else %>
-                    <input type="checkbox" class="form-check-input" disabled title="No Hubstaff ID or not active">
-                  <% end %>
+                  <input type="checkbox" class="form-check-input project-checkbox"
+                         data-project-id="<%= project.id %>"
+                         <%= "disabled title='No Hubstaff ID or not active'" unless can_resync %>>
                 </td>
                 <td class="fw-semibold"><%= link_to project.name, admin_project_path(project), class: "text-decoration-none" %></td>
-                <td class="font-monospace text-muted"><%= project.hubstaff_project_id.presence || "—" %></td>
+                <td class="font-monospace text-muted small"><%= project.hubstaff_project_id.presence || "—" %></td>
                 <td class="text-muted"><%= project.row_number.presence || "—" %></td>
                 <td><span class="badge bg-light text-dark border"><%= project.project_tasks.size %></span></td>
                 <td>
@@ -67,36 +77,171 @@
                      end %>
                   <span class="badge <%= badge_class %>"><%= project.status %></span>
                 </td>
-                <td class="text-muted small"><time data-utc="<%= project.created_at.utc.iso8601 %>"><%= project.created_at.utc.strftime("%b %d, %H:%M") %></time></td>
+                <td class="text-muted small">
+                  <time data-utc="<%= project.created_at.utc.iso8601 %>"><%= project.created_at.utc.strftime("%b %d, %H:%M") %></time>
+                </td>
               </tr>
             <% end %>
           </tbody>
         </table>
       </div>
     </div>
+
+    <div class="d-flex justify-content-center mt-3" id="pagination"></div>
   <% end %>
 
   <script>
-    (function() {
-      const checkboxes = document.querySelectorAll('.project-checkbox');
-      const selectAll  = document.getElementById('select-all');
-      const btn        = document.getElementById('bulk-resync-btn');
-      const countEl    = document.getElementById('selection-count');
+    (function () {
+      var PER_PAGE   = 25;
+      var selectedIds = new Set();
+      var currentPage = 1;
+      var searchQuery = '';
 
-      function updateState() {
-        const checked = document.querySelectorAll('.project-checkbox:checked').length;
-        btn.disabled = checked === 0;
-        countEl.textContent = checked === 0 ? '0 selected' : checked + ' selected';
-        selectAll.indeterminate = checked > 0 && checked < checkboxes.length;
-        selectAll.checked = checked === checkboxes.length && checkboxes.length > 0;
+      var searchInput  = document.getElementById('project-search');
+      var countEl      = document.getElementById('selection-count');
+      var showingEl    = document.getElementById('showing-count');
+      var btn          = document.getElementById('bulk-resync-btn');
+      var selectAll    = document.getElementById('select-all');
+      var paginationEl = document.getElementById('pagination');
+      var tbody        = document.getElementById('projects-tbody');
+
+      function allRows() {
+        return Array.from(document.querySelectorAll('tr.project-row'));
       }
 
-      checkboxes.forEach(cb => cb.addEventListener('change', updateState));
+      function matchesSearch(row) {
+        if (!searchQuery) return true;
+        return row.dataset.name.includes(searchQuery) ||
+               row.dataset.hubstaffId.includes(searchQuery);
+      }
 
-      selectAll.addEventListener('change', function() {
-        checkboxes.forEach(cb => { cb.checked = this.checked; });
-        updateState();
+      function getFilteredSorted() {
+        return allRows()
+          .filter(matchesSearch)
+          .sort(function (a, b) {
+            var aS = selectedIds.has(a.dataset.projectId);
+            var bS = selectedIds.has(b.dataset.projectId);
+            return (aS === bS) ? 0 : (aS ? -1 : 1);
+          });
+      }
+
+      function render() {
+        var filtered   = getFilteredSorted();
+        var total      = filtered.length;
+        var totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        var start    = (currentPage - 1) * PER_PAGE;
+        var pageRows = filtered.slice(start, start + PER_PAGE);
+
+        // Hide all, then show and reorder the current page
+        allRows().forEach(function (r) { r.style.display = 'none'; });
+        pageRows.forEach(function (r) {
+          tbody.appendChild(r);
+          r.style.display = '';
+        });
+
+        // Sync checkbox states
+        document.querySelectorAll('.project-checkbox').forEach(function (cb) {
+          cb.checked = selectedIds.has(cb.dataset.projectId);
+        });
+
+        // Select-all state (only counts resyncable rows on this page)
+        var resyncable = pageRows.filter(function (r) { return r.dataset.canResync === 'true'; });
+        var pageSel    = resyncable.filter(function (r) { return selectedIds.has(r.dataset.projectId); }).length;
+        selectAll.checked       = resyncable.length > 0 && pageSel === resyncable.length;
+        selectAll.indeterminate = pageSel > 0 && pageSel < resyncable.length;
+
+        // Showing counter
+        if (total === 0) {
+          showingEl.textContent = 'No projects found';
+        } else {
+          showingEl.textContent = 'Showing ' + (start + 1) + '–' + Math.min(start + PER_PAGE, total) + ' of ' + total;
+        }
+
+        // Selection counter + button
+        var sel = selectedIds.size;
+        btn.disabled      = sel === 0;
+        countEl.textContent = sel === 0 ? '0 selected' : sel + ' selected';
+
+        renderPagination(totalPages);
+      }
+
+      function renderPagination(totalPages) {
+        if (totalPages <= 1) { paginationEl.innerHTML = ''; return; }
+
+        var html = '<nav aria-label="Projects pagination"><ul class="pagination pagination-sm mb-0">';
+
+        html += '<li class="page-item' + (currentPage === 1 ? ' disabled' : '') + '">' +
+                '<a class="page-link" href="#" data-page="' + (currentPage - 1) + '">‹</a></li>';
+
+        for (var i = 1; i <= totalPages; i++) {
+          if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+            html += '<li class="page-item' + (i === currentPage ? ' active' : '') + '">' +
+                    '<a class="page-link" href="#" data-page="' + i + '">' + i + '</a></li>';
+          } else if (i === currentPage - 3 || i === currentPage + 3) {
+            html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
+          }
+        }
+
+        html += '<li class="page-item' + (currentPage === totalPages ? ' disabled' : '') + '">' +
+                '<a class="page-link" href="#" data-page="' + (currentPage + 1) + '">›</a></li>';
+
+        html += '</ul></nav>';
+        paginationEl.innerHTML = html;
+
+        paginationEl.querySelectorAll('[data-page]').forEach(function (link) {
+          link.addEventListener('click', function (e) {
+            e.preventDefault();
+            var page       = parseInt(this.dataset.page);
+            var totalPages = Math.ceil(getFilteredSorted().length / PER_PAGE);
+            if (page >= 1 && page <= totalPages) { currentPage = page; render(); }
+          });
+        });
+      }
+
+      // Search
+      searchInput.addEventListener('input', function () {
+        searchQuery = this.value.trim().toLowerCase();
+        currentPage = 1;
+        render();
       });
+
+      // Checkbox change (event delegation)
+      tbody.addEventListener('change', function (e) {
+        if (!e.target.classList.contains('project-checkbox')) return;
+        var id = e.target.dataset.projectId;
+        if (e.target.checked) { selectedIds.add(id); } else { selectedIds.delete(id); }
+        render();
+      });
+
+      // Select all (current page only)
+      selectAll.addEventListener('change', function () {
+        var filtered = getFilteredSorted();
+        var start    = (currentPage - 1) * PER_PAGE;
+        var pageRows = filtered.slice(start, start + PER_PAGE);
+        pageRows.forEach(function (row) {
+          if (row.dataset.canResync !== 'true') return;
+          if (selectAll.checked) { selectedIds.add(row.dataset.projectId); }
+          else                   { selectedIds.delete(row.dataset.projectId); }
+        });
+        render();
+      });
+
+      // On submit, inject hidden inputs for all selected IDs
+      document.getElementById('bulk-resync-form').addEventListener('submit', function () {
+        var container = document.getElementById('selected-inputs-container');
+        container.innerHTML = '';
+        selectedIds.forEach(function (id) {
+          var input = document.createElement('input');
+          input.type  = 'hidden';
+          input.name  = 'project_ids[]';
+          input.value = id;
+          container.appendChild(input);
+        });
+      });
+
+      render();
     })();
   </script>
 <% end %>

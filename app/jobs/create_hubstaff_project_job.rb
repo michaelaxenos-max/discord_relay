@@ -6,7 +6,10 @@ class CreateHubstaffProjectJob < ApplicationJob
     SheetsWriter.write_by_header(row_number, "Hubstaff Project ID", "Error: Rate limit exceeded after multiple retries")
   end
 
-  retry_on ActiveRecord::StatementInvalid, wait: 5.seconds, attempts: 3
+  retry_on ActiveRecord::StatementInvalid, wait: 5.seconds, attempts: 3 do |job, error|
+    row_number = job.arguments.first["row_number"]
+    SheetsWriter.write_by_header(row_number, "Hubstaff Project ID", "Error: Database connection failed, please retry")
+  end
 
   def perform(project_name:, row_number:, dynamic_task: nil, hours: nil)
     project_id = HubstaffService.new.create_project_with_tasks(

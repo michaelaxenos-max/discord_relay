@@ -46,6 +46,11 @@ class CreateHubstaffProjectJob < ApplicationJob
     record&.update!(hubstaff_project_id: project_id.to_s, status: "active")
     SheetsWriter.write_by_header(row_number, "Hubstaff Project ID", project_id)
     record&.log("sheet_written", "Project ID #{project_id} written to sheet row #{row_number}")
+
+    ResyncProjectJob.perform_later(
+      hubstaff_project_id: project_id.to_s,
+      project_record_id:   record&.id
+    )
   rescue HubstaffService::RateLimitError
     record&.log("error", "Rate limit hit — retrying in 1 minute") rescue nil
     raise

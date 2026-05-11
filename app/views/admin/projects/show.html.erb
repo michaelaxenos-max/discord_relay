@@ -1,0 +1,88 @@
+<div class="d-flex align-items-center mb-4">
+  <%= link_to admin_projects_path, class: "btn btn-sm btn-outline-secondary me-3" do %>
+    <i class="bi bi-arrow-left"></i> Back
+  <% end %>
+  <div>
+    <h4 class="mb-0 fw-bold"><%= @project.name %></h4>
+    <p class="text-muted mb-0 small">Row <%= @project.row_number.presence || "—" %></p>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Status</div>
+        <% badge_class = case @project.status
+           when "active"   then "bg-success"
+           when "pending"  then "bg-warning text-dark"
+           when "failed"   then "bg-danger"
+           when "archived" then "bg-secondary"
+           else "bg-light text-dark border"
+           end %>
+        <span class="badge <%= badge_class %> fs-6"><%= @project.status %></span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Hubstaff Project ID</div>
+        <div class="fw-semibold font-monospace"><%= @project.hubstaff_project_id.presence || "—" %></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Sheet Row</div>
+        <div class="fw-semibold"><%= @project.row_number.presence || "—" %></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Created</div>
+        <div class="fw-semibold"><%= @project.created_at.strftime("%b %d, %Y %H:%M") %></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-clock-history text-primary me-1"></i> Activity Log
+  </div>
+  <% if @logs.empty? %>
+    <div class="card-body text-center py-5 text-muted">
+      <i class="bi bi-journal-x" style="font-size:1.5rem;"></i>
+      <p class="mt-2 mb-0">No activity logged yet.</p>
+    </div>
+  <% else %>
+    <div class="list-group list-group-flush">
+      <% @logs.each do |log| %>
+        <div class="list-group-item d-flex align-items-start gap-3 py-3">
+          <% icon_class, color = case log.event
+             when "created"      then ["bi-check-circle-fill", "text-success"]
+             when "sheet_written" then ["bi-file-earmark-check-fill", "text-primary"]
+             when "task_created" then ["bi-plus-circle-fill", "text-info"]
+             when "member_added" then ["bi-person-plus-fill", "text-info"]
+             when "error"        then ["bi-exclamation-circle-fill", "text-danger"]
+             else                     ["bi-info-circle-fill", "text-secondary"]
+             end %>
+          <i class="bi <%= icon_class %> <%= color %> mt-1" style="font-size:1.1rem; flex-shrink:0;"></i>
+          <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-start">
+              <span class="fw-semibold text-capitalize"><%= log.event.gsub("_", " ") %></span>
+              <small class="text-muted ms-3 text-nowrap"><%= log.created_at.strftime("%b %d, %H:%M:%S") %></small>
+            </div>
+            <% if log.message.present? %>
+              <div class="text-muted small mt-1 font-monospace" style="word-break:break-all;"><%= log.message %></div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>

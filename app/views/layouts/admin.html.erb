@@ -66,6 +66,10 @@
                class="nav-link <%= 'active' if %w[teams task_templates].include?(controller_name) %>">
               <i class="bi bi-diagram-3-fill"></i> Teams &amp; Tasks
             </a>
+            <a href="<%= admin_projects_path %>"
+               class="nav-link <%= 'active' if controller_name == 'projects' %>">
+              <i class="bi bi-folder2-open"></i> Projects
+            </a>
             <a href="<%= new_admin_project_resync_path %>"
                class="nav-link <%= 'active' if controller_name == 'project_resync' %>">
               <i class="bi bi-list-check"></i> Resync Tasks

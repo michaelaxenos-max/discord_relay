@@ -16,10 +16,14 @@ Rails.application.routes.draw do
 
   namespace :admin do
     root to: "dashboard#index"
-    resources :teams do
+    resources :teams, only: [:index] do
+      collection { post :resync }
       resources :task_templates, shallow: true
     end
     resources :sync, only: [:new, :create]
     resources :project_resync, only: [:new, :create]
+    resources :projects, only: [:index, :show] do
+      collection { post :resync }
+    end
   end
 end

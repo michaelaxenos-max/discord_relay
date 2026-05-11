@@ -1,0 +1,57 @@
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold">Projects</h4>
+    <p class="text-muted mb-0 small">All Hubstaff projects tracked by this system</p>
+  </div>
+  <div class="d-flex align-items-center gap-3">
+    <span class="badge bg-secondary rounded-pill"><%= @projects.size %> projects</span>
+    <%= button_to resync_admin_projects_path, method: :post, class: "btn btn-outline-primary" do %>
+      <i class="bi bi-arrow-repeat me-1"></i> Sync from Hubstaff
+    <% end %>
+  </div>
+</div>
+
+<% if @projects.empty? %>
+  <div class="card">
+    <div class="card-body text-center py-5 text-muted">
+      <i class="bi bi-folder" style="font-size:2rem;"></i>
+      <p class="mt-2 mb-0">No projects tracked yet. Projects appear here once created via Google Sheets.</p>
+    </div>
+  </div>
+<% else %>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Project Name</th>
+            <th>Hubstaff ID</th>
+            <th>Sheet Row</th>
+            <th>Status</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @projects.each do |project| %>
+            <tr>
+              <td class="fw-semibold"><%= link_to project.name, admin_project_path(project), class: "text-decoration-none" %></td>
+              <td class="font-monospace text-muted"><%= project.hubstaff_project_id.presence || "—" %></td>
+              <td class="text-muted"><%= project.row_number.presence || "—" %></td>
+              <td>
+                <% badge_class = case project.status
+                   when "active"   then "bg-success"
+                   when "pending"  then "bg-warning text-dark"
+                   when "failed"   then "bg-danger"
+                   when "archived" then "bg-secondary"
+                   else "bg-light text-dark border"
+                   end %>
+                <span class="badge <%= badge_class %>"><%= project.status %></span>
+              </td>
+              <td class="text-muted small"><%= project.created_at.strftime("%b %d, %H:%M") %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% end %>

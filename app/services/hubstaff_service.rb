@@ -138,6 +138,22 @@ class HubstaffService
     Rails.logger.error "Failed to add assignee #{user_id} to task #{task_id}: #{e.message}"
   end
 
+  def org_projects(status: "active")
+    all_projects = []
+    page_start_id = nil
+
+    loop do
+      path = "/organizations/#{@org_id}/projects?status=#{status}&page_limit=100"
+      path += "&page_start_id=#{page_start_id}" if page_start_id
+      projects = get(path).fetch("projects", [])
+      all_projects.concat(projects)
+      break if projects.size < 100
+      page_start_id = projects.last["id"]
+    end
+
+    all_projects
+  end
+
   def sync_tasks_to_project(project_id)
     existing_names = get_project_tasks(project_id).map { |t| t["summary"] }
     all_tasks      = build_task_list(nil)

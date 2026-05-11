@@ -119,8 +119,10 @@ class HubstaffService
     end
   end
 
+  MANAGER_USER_ID = 3517608 # Michael Xenos
+
   def create_project(name, member_ids)
-    members = member_ids.map { |uid| { user_id: uid, role: "manager" } }
+    members = member_ids.map { |uid| { user_id: uid, role: uid == MANAGER_USER_ID ? "manager" : "member" } }
     response = post("/organizations/#{@org_id}/projects", { name: name, members: members })
     response.dig("project", "id") || raise("Failed to create project: #{response}")
   end

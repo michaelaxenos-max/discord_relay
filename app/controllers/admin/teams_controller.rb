@@ -14,4 +14,5 @@ class Admin::TeamsController < Admin::BaseController
   rescue => e
     redirect_to admin_teams_path, alert: "Resync failed: #{e.message}"
   end
+
 end

@@ -1,0 +1,45 @@
+<div class="d-flex align-items-center mb-4">
+  <%= link_to admin_teams_path, class: "btn btn-sm btn-outline-secondary me-3" do %>
+    <i class="bi bi-arrow-left"></i> Back
+  <% end %>
+  <div>
+    <h4 class="mb-0 fw-bold">Sync <%= @member.name %> to Projects</h4>
+    <p class="text-muted mb-0 small">
+      Team: <strong><%= @member.team_name.presence || "No Team" %></strong>
+      &nbsp;·&nbsp; <%= @member.email %>
+    </p>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header bg-white fw-semibold">How this works</div>
+  <div class="card-body text-muted small">
+    <p class="mb-1">For each project ID you enter, this will:</p>
+    <ol class="mb-0">
+      <li>Fetch all existing tasks for that project</li>
+      <li>For each task belonging to the <strong><%= @member.team_name %></strong> team, check if <%= @member.name %> is already assigned</li>
+      <li>If not assigned, create a duplicate task assigned <strong>only to <%= @member.name %></strong></li>
+    </ol>
+  </div>
+</div>
+
+<%= form_with url: do_sync_user_admin_team_path(@member), method: :post do |f| %>
+  <div class="card mb-4">
+    <div class="card-header bg-white fw-semibold">Project IDs</div>
+    <div class="card-body">
+      <div class="mb-0">
+        <%= f.label :project_ids, "Enter Hubstaff project IDs (one per line, or comma-separated)", class: "form-label fw-semibold" %>
+        <%= f.text_area :project_ids,
+              class: "form-control font-monospace",
+              rows: 6,
+              placeholder: "4027729\n4027730\n4027731",
+              autocomplete: "off" %>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <%= f.submit "Create Tasks", class: "btn btn-success" %>
+    <%= link_to "Cancel", admin_teams_path, class: "btn btn-outline-secondary" %>
+  </div>
+<% end %>

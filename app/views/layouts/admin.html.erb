@@ -8,6 +8,9 @@
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
           crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmRmQfM8s+ixBLO6a5UzK7MnJed"
+            crossorigin="anonymous"></script>
     <style>
       body { background-color: #f8f9fa; }
       .sidebar {
@@ -78,6 +81,10 @@
                class="nav-link <%= 'active' if controller_name == 'project_resync' %>">
               <i class="bi bi-list-check"></i> Resync Tasks
             </a>
+            <a href="<%= admin_member_sync_index_path %>"
+               class="nav-link <%= 'active' if controller_name == 'member_sync' %>">
+              <i class="bi bi-person-plus-fill"></i> Member Sync
+            </a>
             <a href="/admin/jobs" class="nav-link">
               <i class="bi bi-cpu"></i> Job Queues
             </a>
@@ -120,10 +127,12 @@
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmRmQfM8s+ixBLO6a5UzK7MnJed"
-            crossorigin="anonymous"></script>
     <script>
+      document.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-bs-dismiss="alert"]');
+        if (btn) { var a = btn.closest('.alert'); if (a) a.remove(); }
+      });
+
       document.querySelectorAll('time[data-utc]').forEach(function(el) {
         var d = new Date(el.dataset.utc);
         if (isNaN(d)) return;

@@ -87,6 +87,51 @@ class HubstaffService
 
   # --- Public methods for admin panel ---
 
+  def sync_members_to_db
+    members = org_members_with_users
+    teams   = org_teams
+
+    team_by_user = {}
+    teams.each do |team|
+      team_member_ids(team["id"]).each do |uid|
+        team_by_user[uid] ||= team["name"]
+      end
+    end
+
+    active_ids = []
+    members.each do |m|
+      next unless m[:name].present?
+      HubstaffMember.find_or_initialize_by(hubstaff_user_id: m[:hubstaff_user_id]).tap do |rec|
+        rec.name             = m[:name]
+        rec.email            = m[:email]
+        rec.team_name        = team_by_user[m[:hubstaff_user_id]]
+        rec.membership_role  = m[:membership_role]
+        rec.save!
+      end
+      active_ids << m[:hubstaff_user_id]
+    end
+
+    HubstaffMember.where.not(hubstaff_user_id: active_ids).destroy_all
+  end
+
+  def create_user_tasks_for_project(project_id, user_id, team_name)
+    task_names   = task_names_for_team(team_name)
+    existing     = get_project_tasks(project_id)
+    created      = 0
+
+    task_names.each do |task_name|
+      already_assigned = existing.any? do |t|
+        t["summary"] == task_name && (t["assignee_ids"] || []).include?(user_id)
+      end
+      next if already_assigned
+
+      post("/projects/#{project_id}/tasks", { summary: task_name, assignee_ids: [user_id] })
+      created += 1
+    end
+
+    created
+  end
+
   def org_members_with_users
     response = get_raw("/organizations/#{@org_id}/members?include=users")
     members  = response.fetch("members", [])
@@ -220,11 +265,21 @@ class HubstaffService
       next unless team_name
       next if EXCLUDED_TEAMS.include?(team_name)
 
-      current_assignees = task["assignee_ids"] || []
-      team_user_ids(team_name).each do |uid|
-        next if current_assignees.include?(uid)
-        add_assignee_to_task(task["id"], uid)
-      end
+      expected     = team_user_ids(team_name)
+      current      = task["assignee_ids"] || []
+      missing      = expected - current
+      next if missing.empty?
+
+      task_detail  = get("/tasks/#{task["id"]}").fetch("task", {})
+      updated_ids  = (current + missing).uniq
+      put("/tasks/#{task["id"]}", {
+        assignee_ids: updated_ids,
+        lock_version: task_detail["lock_version"],
+        summary:      task_detail["summary"],
+        status:       task_detail["status"] || "active"
+      })
+    rescue => e
+      Rails.logger.error "sync_task_assignees: failed for task #{task["id"]} (#{task["summary"]}): #{e.message}"
     end
   end
 
@@ -331,6 +386,12 @@ class HubstaffService
     end
 
     payload
+  end
+
+  def task_names_for_team(team_name)
+    db = TaskTemplate.joins(:team).where(teams: { name: team_name }).pluck(:name)
+    return db if db.any?
+    TASK_TEAM_MAP.select { |_, t| t == team_name }.keys
   end
 
   def task_team_name_from_db(task_name)

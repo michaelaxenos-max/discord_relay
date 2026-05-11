@@ -24,6 +24,12 @@ Rails.application.routes.draw do
       collection { post :resync }
       resources :task_templates, shallow: true
     end
+    resources :member_sync, only: [:index] do
+      collection do
+        post :resync_members
+        post :sync
+      end
+    end
     resources :sync, only: [:new, :create]
     resources :project_resync, only: [:new, :create]
     resources :projects, only: [:index, :show] do

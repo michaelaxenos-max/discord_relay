@@ -1,0 +1,141 @@
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold">Member Sync</h4>
+    <p class="text-muted mb-0 small">Select members and project IDs to create tasks for specific people</p>
+  </div>
+  <%= button_to resync_members_admin_member_sync_index_path, method: :post, class: "btn btn-outline-primary btn-sm" do %>
+    <i class="bi bi-arrow-repeat me-1"></i> Resync Members from Hubstaff
+  <% end %>
+</div>
+
+<% if @members_by_team.empty? %>
+  <div class="card">
+    <div class="card-body text-center py-5 text-muted">
+      <i class="bi bi-people" style="font-size:2rem;"></i>
+      <p class="mt-2 mb-0">No members yet — click "Resync Members from Hubstaff" to import them.</p>
+    </div>
+  </div>
+<% else %>
+  <%= form_with url: sync_admin_member_sync_index_path, method: :post do |f| %>
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card">
+          <div class="card-header bg-white d-flex align-items-center justify-content-between">
+            <span class="fw-semibold">Select Members</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="select-all-btn">Select All</button>
+          </div>
+
+          <% sorted = @members_by_team.sort_by { |name, _| [@team_order.index(name) || 99, name.to_s] } %>
+          <% sorted.each do |team_name, members| %>
+            <div class="card-body border-bottom pb-3 pt-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-2">
+                  <input type="checkbox" class="form-check-input team-all" id="team_all_<%= team_name.to_s.parameterize %>"
+                         data-team="<%= team_name.to_s.parameterize %>">
+                  <label class="fw-semibold small mb-0" for="team_all_<%= team_name.to_s.parameterize %>">
+                    <%= team_name.presence || "No Team" %>
+                  </label>
+                </div>
+                <span class="badge bg-light text-secondary border"><%= members.size %></span>
+              </div>
+              <div class="row g-1 ms-3">
+                <% members.sort_by(&:name).each do |member| %>
+                  <div class="col-md-6 col-lg-4">
+                    <div class="form-check">
+                      <%= check_box_tag "member_ids[]", member.id,
+                            false,
+                            class: "form-check-input member-cb team-member-#{team_name.to_s.parameterize}",
+                            id: "member_#{member.id}" %>
+                      <label class="form-check-label small" for="member_<%= member.id %>">
+                        <%= member.name %>
+                        <span class="text-muted" style="font-size:0.75rem;"><%= member.email %></span>
+                      </label>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card mb-3">
+          <div class="card-header bg-white fw-semibold">Project IDs</div>
+          <div class="card-body">
+            <%= f.label :project_ids, "One per line or comma-separated", class: "form-label small text-muted" %>
+            <%= f.text_area :project_ids,
+                  class: "form-control font-monospace",
+                  rows: 8,
+                  placeholder: "4027729\n4027730\n4027731",
+                  autocomplete: "off" %>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header bg-white fw-semibold">How it works</div>
+          <div class="card-body text-muted small">
+            <p class="mb-1">For each selected member + project:</p>
+            <ol class="mb-0 ps-3">
+              <li>Checks existing tasks in the project</li>
+              <li>For tasks matching their team, checks if they're already assigned</li>
+              <li>If not assigned → creates a new task assigned only to them</li>
+              <li>If already assigned → skips (no duplicate)</li>
+            </ol>
+          </div>
+        </div>
+
+        <%= f.submit "Create Tasks", class: "btn btn-success w-100" %>
+      </div>
+    </div>
+  <% end %>
+<% end %>
+
+<script>
+  // Team select-all
+  document.querySelectorAll('.team-all').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      document.querySelectorAll('.team-member-' + this.dataset.team).forEach(function(m) {
+        m.checked = cb.checked;
+      });
+      updateSelectAllBtn();
+    });
+  });
+
+  // Individual member → sync team checkbox state
+  document.querySelectorAll('.member-cb').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      var teamClass = Array.from(this.classList).find(c => c.startsWith('team-member-'));
+      if (!teamClass) return;
+      var team = teamClass.replace('team-member-', '');
+      var all     = document.querySelectorAll('.' + teamClass);
+      var checked = Array.from(all).filter(c => c.checked).length;
+      var teamCb  = document.getElementById('team_all_' + team);
+      if (teamCb) {
+        teamCb.checked       = checked === all.length;
+        teamCb.indeterminate = checked > 0 && checked < all.length;
+      }
+      updateSelectAllBtn();
+    });
+  });
+
+  // Global select-all button
+  var selectAllBtn = document.getElementById('select-all-btn');
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', function() {
+      var allChecked = Array.from(document.querySelectorAll('.member-cb')).every(c => c.checked);
+      document.querySelectorAll('.member-cb, .team-all').forEach(function(c) {
+        c.checked = !allChecked;
+        c.indeterminate = false;
+      });
+      updateSelectAllBtn();
+    });
+  }
+
+  function updateSelectAllBtn() {
+    if (!selectAllBtn) return;
+    var all     = document.querySelectorAll('.member-cb');
+    var checked = Array.from(all).filter(c => c.checked).length;
+    selectAllBtn.textContent = checked === all.length ? 'Deselect All' : 'Select All';
+  }
+</script>

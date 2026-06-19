@@ -1,23 +1,23 @@
-# fly.toml app configuration file generated for discord-relay-lucid-dew-846 on 2026-04-29T22:07:42-04:00
+# fly.toml app configuration file generated for discord-relay-m5ozaw on 2026-06-19T18:17:51Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'discord-relay-lucid-dew-846'
-primary_region = 'gru'
+app = 'discord-relay-m5ozaw'
+primary_region = 'ams'
 console_command = '/rails/bin/rails console'
 
 [build]
 
 [deploy]
-  release_command = "./bin/rails db:prepare"
+  release_command = './bin/rails db:prepare'
 
 [env]
   PORT = '8080'
 
 [processes]
-  app    = "./bin/rails server"
-  worker = "./bin/jobs"
+  app = './bin/rails server'
+  worker = './bin/jobs'
 
 [http_service]
   internal_port = 8080

@@ -10,7 +10,7 @@ function getColumnByName(sheetName, columnName, headerRow = 1) {
   return col;
 }
 
-function createForumPost(channelId, title, content, tag) {
+function createForumPost(channelId, title, content = null, tag = null) {
   const payload = {
     channel_id: channelId,
     title: title,
@@ -30,7 +30,7 @@ function createForumPost(channelId, title, content, tag) {
   return result.thread_id;
 }
 
-function updateForumPost(channelId, threadId, tag, comment) {
+function updateForumPost(channelId, threadId, tag = null, comment = null, title = null) {
   const payload = {
     channel_id: channelId,
     thread_id: threadId,
@@ -42,6 +42,10 @@ function updateForumPost(channelId, threadId, tag, comment) {
 
   if (comment) {
     payload.content = comment;
+  }
+
+  if (title) {
+    payload.title = title;
   }
 
   const result = callDiscordRelay("discord/forum/update", payload);
@@ -78,6 +82,48 @@ function callDiscordRelay(endpoint, payload, method = "post") {
 }
 
 
+// ── Hubstaff: add Juliet (4267161) to editor tasks on project 4027729 ────────
+// Task IDs for editor tasks on project 4027729:
+//   162859540 Deep Research GPT
+//   162859542 Image (AI regen)
+//   162859543 Image (from scratch)
+//   162859546 Video - 2min
+//   162859547 Video – 3 min
+//   162859548 Video – 4 min
+//   162859549 Video – 5 min
+//   162859550 Video – 6 min
+//   162859551 Video – 7 min
+//   162859552 Video – Script change
+//   162859554 Video – Scrollstopper
+//   162859556 Video – under 1 min
+//
+// Current assignees on each task: [2196094, 3517608, 4262600, 4264322]
+// Want to add Juliet: 4267161
+//
+// The PUT request we make:
+//   PUT https://api.hubstaff.com/v2/tasks/{task_id}
+//   Authorization: Bearer {access_token}
+//   Content-Type: application/json
+//   Body: {
+//     "assignee_ids": [2196094, 3517608, 4262600, 4264322, 4267161],
+//     "lock_version": <current lock_version from GET /v2/tasks/{task_id}>,
+//     "summary": "Video – 3 min",
+//     "status": "active"
+//   }
+//
+// Response: 403 {"code":"not_authorized","error_code":10003,"error":"Can not update a task for this user in this project"}
+//
+// To test manually with curl (replace ACCESS_TOKEN and pick any task_id):
+//
+// Step 1 – get current lock_version:
+//   curl -H "Authorization: Bearer ACCESS_TOKEN" https://api.hubstaff.com/v2/tasks/162859547
+//
+// Step 2 – update assignees:
+//   curl -X PUT https://api.hubstaff.com/v2/tasks/162859547 \
+//     -H "Authorization: Bearer ACCESS_TOKEN" \
+//     -H "Content-Type: application/json" \
+//     -d '{"assignee_ids":[2196094,3517608,4262600,4264322,4267161],"lock_version":1,"summary":"Video – 3 min","status":"active"}'
+
 /// here below this
 //
 //
@@ -100,3 +146,23 @@ function callDiscordRelay(endpoint, payload, method = "post") {
     };
   }
 }
+
+
+
+
+  function getDiscordMention(name, team) {
+    const isFunnelBuilder = team == 'Funnel Builder';
+    const nameHeader = isFunnelBuilder ? 'Funnel Builder' : 'Editor';
+    const idHeader   = isFunnelBuilder ? 'Discord Id Funnel Builders' : 'Discord Id Editors';
+
+    const nameCol = getColumnByName(nameHeader, "Assignment", 1);
+    const idCol   = getColumnByName(idHeader, "Assignment", 1);
+
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Assignment");
+    const names = sheet.getRange(1, nameCol, sheet.getLastRow(), 1).getValues();
+    const row = names.findIndex(r => r[0] === name);
+    if (row === -1) return "";
+
+    const userId = sheet.getRange(row + 1, idCol).getValue();
+    return "<@" + userId + ">";
+  }

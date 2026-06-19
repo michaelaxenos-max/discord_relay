@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_22_145645) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -21,6 +21,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_000004) do
     t.datetime "remember_created_at"
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_admin_users_on_email", unique: true
+  end
+
+  create_table "forum_threads", force: :cascade do |t|
+    t.string "channel_id", null: false
+    t.datetime "created_at", null: false
+    t.string "thread_id", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["channel_id", "title"], name: "index_forum_threads_on_channel_id_and_title", unique: true
   end
 
   create_table "hubstaff_members", force: :cascade do |t|

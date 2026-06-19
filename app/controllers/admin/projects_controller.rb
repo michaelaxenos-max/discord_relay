@@ -9,6 +9,14 @@ class Admin::ProjectsController < Admin::BaseController
     @logs    = @project.project_logs.order(created_at: :asc)
   end
 
+  def destroy
+    @project = Project.find(params[:id])
+    @project.destroy!
+    redirect_to admin_projects_path, notice: "\"#{@project.name}\" deleted."
+  rescue => e
+    redirect_to admin_project_path(params[:id]), alert: "Failed to delete: #{e.message}"
+  end
+
   def resync
     SyncProjectsFromHubstaffJob.perform_later
     redirect_to admin_projects_path, notice: "Project sync queued — the list will update shortly."
@@ -53,7 +61,7 @@ class Admin::ProjectsController < Admin::BaseController
 
   def new_task
     @project = Project.find(params[:id])
-    service  = HubstaffService.new
+    service  = RelayCore::HubstaffService.new
 
     members  = service.org_members_with_users.select { |m| m[:name].present? }
     teams    = service.org_teams
@@ -90,7 +98,7 @@ class Admin::ProjectsController < Admin::BaseController
       return
     end
 
-    service = HubstaffService.new
+    service = RelayCore::HubstaffService.new
     task_id = service.add_task_to_project(
       @project.hubstaff_project_id,
       task_name,
@@ -113,7 +121,7 @@ class Admin::ProjectsController < Admin::BaseController
     @project = Project.find(params[:id])
     task     = @project.project_tasks.find(params[:task_id])
 
-    HubstaffService.new.archive_task(task.hubstaff_task_id) if task.hubstaff_task_id.present?
+    RelayCore::HubstaffService.new.archive_task(task.hubstaff_task_id) if task.hubstaff_task_id.present?
     task.destroy!
 
     redirect_to admin_project_path(@project), notice: "Task \"#{task.name}\" removed."

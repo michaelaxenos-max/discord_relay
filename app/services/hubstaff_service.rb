@@ -115,9 +115,9 @@ class HubstaffService
   end
 
   def create_user_tasks_for_project(project_id, user_id, team_name)
-    members = get("/projects/#{project_id}/members").fetch("members", [])
+    members = get("/projects/#{project_id}/members").fetch("project_members", [])
     unless members.any? { |m| m["user_id"] == user_id }
-      add_member_to_project(project_id, user_id)
+      return 0 unless add_member_to_project(project_id, user_id)
     end
 
     task_names = task_names_for_team(team_name)
@@ -257,12 +257,14 @@ class HubstaffService
   end
 
   def sync_tasks_to_project(project_id)
-    existing_names = get_project_tasks(project_id).map { |t| t["summary"] }
-    all_tasks      = build_task_list(nil)
+    project_member_ids = project_member_id_set(project_id)
+    existing_names     = get_project_tasks(project_id).map { |t| t["summary"] }
+    all_tasks          = build_task_list(nil)
 
     all_tasks.each do |task_name|
       next if existing_names.include?(task_name)
-      payload  = build_task_payload(task_name, nil, nil)
+      payload                  = build_task_payload(task_name, nil, nil)
+      payload[:assignee_ids]   = Array(payload[:assignee_ids]) & project_member_ids.to_a
       response = post("/projects/#{project_id}/tasks", payload)
       task_id  = response.dig("task", "id")
       persist_task_to_db(project_id, task_name, task_id) if task_id
@@ -270,6 +272,7 @@ class HubstaffService
   end
 
   def sync_task_assignees(project_id)
+    project_member_ids = project_member_id_set(project_id)
     tasks = get_project_tasks(project_id)
     tasks.each do |task|
       task_name = task["summary"]
@@ -277,7 +280,7 @@ class HubstaffService
       next unless team_name
       next if EXCLUDED_TEAMS.include?(team_name)
 
-      expected     = team_user_ids(team_name)
+      expected     = team_user_ids(team_name) & project_member_ids.to_a
       current      = task["assignee_ids"] || []
       missing      = expected - current
       next if missing.empty?
@@ -346,9 +349,11 @@ class HubstaffService
   end
 
   def create_tasks(project_id, dynamic_task, hours)
+    project_member_ids = non_excluded_member_ids.to_set
     tasks = build_task_list(dynamic_task)
     tasks.each do |task_name|
-      payload  = build_task_payload(task_name, dynamic_task, hours)
+      payload                = build_task_payload(task_name, dynamic_task, hours)
+      payload[:assignee_ids] = Array(payload[:assignee_ids]) & project_member_ids.to_a
       response = post("/projects/#{project_id}/tasks", payload)
       task_id  = response.dig("task", "id")
       persist_task_to_db(project_id, task_name, task_id) if task_id
@@ -414,6 +419,10 @@ class HubstaffService
     end
   rescue => e
     Rails.logger.warn "persist_task_to_db failed for project #{hubstaff_project_id} / task #{task_name}: #{e.message}"
+  end
+
+  def project_member_id_set(project_id)
+    get("/projects/#{project_id}/members").fetch("project_members", []).map { |m| m["user_id"] }.to_set
   end
 
   def task_names_for_team(team_name)

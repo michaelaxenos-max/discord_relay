@@ -32,3 +32,4 @@
 /config/*.key
 
 Hubstaff Sync IAM Admin.json
+.worktrees/

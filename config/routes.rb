@@ -7,6 +7,7 @@ Rails.application.routes.draw do
 
   namespace :api do
     resources :projects, only: [:create, :destroy]
+    resources :task_templates, only: [:index]
   end
 
   devise_for :admin_users,
@@ -32,7 +33,7 @@ Rails.application.routes.draw do
     end
     resources :sync, only: [:new, :create]
     resources :project_resync, only: [:new, :create]
-    resources :projects, only: [:index, :show] do
+    resources :projects, only: [:index, :show, :destroy] do
       collection do
         post :resync
         post :bulk_resync

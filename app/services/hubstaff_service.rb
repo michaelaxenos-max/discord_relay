@@ -226,6 +226,7 @@ class HubstaffService
         non_excluded_member_ids
       end
     end
+    return if Array(assignee_ids).empty? # don't create tasks with no assignee (Hubstaff rejects them)
     response = post("/projects/#{project_id}/tasks", { summary: task_name, assignee_ids: assignee_ids })
     response.dig("task", "id") || raise("Failed to create task: #{response}")
   end
@@ -265,6 +266,7 @@ class HubstaffService
       next if existing_names.include?(task_name)
       payload                  = build_task_payload(task_name, nil, nil)
       payload[:assignee_ids]   = Array(payload[:assignee_ids]) & project_member_ids.to_a
+      next if payload[:assignee_ids].empty? # Hubstaff rejects tasks with no assignee
       response = post("/projects/#{project_id}/tasks", payload)
       task_id  = response.dig("task", "id")
       persist_task_to_db(project_id, task_name, task_id) if task_id
@@ -354,6 +356,7 @@ class HubstaffService
     tasks.each do |task_name|
       payload                = build_task_payload(task_name, dynamic_task, hours)
       payload[:assignee_ids] = Array(payload[:assignee_ids]) & project_member_ids.to_a
+      next if payload[:assignee_ids].empty? # skip excluded-team/general tasks (Hubstaff rejects empty assignee_ids)
       response = post("/projects/#{project_id}/tasks", payload)
       task_id  = response.dig("task", "id")
       persist_task_to_db(project_id, task_name, task_id) if task_id
@@ -390,7 +393,7 @@ class HubstaffService
   def build_task_payload(task_name, dynamic_task, hours)
     team_name = task_team_name_from_db(task_name) || TASK_TEAM_MAP[task_name]
     assignees = if EXCLUDED_TEAMS.include?(team_name)
-      []
+      [] # general/excluded-team tasks aren't created in funnel projects (skipped by caller)
     elsif team_name
       ids = team_user_ids(team_name)
       ids.empty? ? non_excluded_member_ids : ids

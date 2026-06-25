@@ -14,10 +14,13 @@ console_command = '/rails/bin/rails console'
 
 [env]
   PORT = '8080'
+  # Run Solid Queue inside Puma so jobs are processed by the always-on app
+  # machines (min_machines_running = 1). Avoids a separate worker machine that
+  # has no auto-start and silently stops, stalling the job queue.
+  SOLID_QUEUE_IN_PUMA = 'true'
 
 [processes]
-  app    = "./bin/rails server"
-  worker = "./bin/jobs"
+  app = "./bin/rails server"
 
 [http_service]
   internal_port = 8080

@@ -70,6 +70,12 @@ Everything is now working end-to-end and verified on real data.
    - Branch: `fix/cs-task-assignees` (commit `d5a7d3f`), pushed to GitHub. **PR not yet merged.**
    - Deployed to Fly. Verified: a funnel project now creates **19 tasks**, skipping exactly the
      2 general CS tasks.
+6. **Fixed job-queue reliability** (rows stuck on `pending`, columns AR not updating): the
+   separate `worker` machine had **no auto-start** and silently stopped, stalling the queue
+   (`SolidQueue::Processes::ProcessPrunedError`). Switched to running **Solid Queue inside Puma**
+   on the always-on `app` machines (`SOLID_QUEUE_IN_PUMA=true` in `fly.toml [env]`) and **removed
+   the `worker` process**. Verified both app machines now run Supervisor/Dispatcher/Worker/Scheduler.
+   Cleaned up duplicate `pending` Project records (rows already had IDs from sibling jobs).
 
 ---
 

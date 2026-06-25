@@ -68,10 +68,16 @@ function trackFunnelAssignment(e) {
     }
     const title = `${funnel} - ${name}`;
     const mention = getDiscordMention(name, 'Funnel Builder');
-    const content = `${mention} claimed this funnel.`;
-    postId = createForumPost(channelId, title, content, status);                                       
-
-    sheet.getRange(row, postCol).setValue(postId);
+    if (postId) {
+      // Builder reassigned: rename the existing thread and post a note.
+      // Keep one thread per funnel (same postId / Funnel Post Id) instead of creating a new one.
+      updateForumPost(channelId, postId, status, `${mention} is now assigned to this funnel.`, title);
+    } else {
+      // First assignment: create the thread and store its id.
+      const content = `${mention} claimed this funnel.`;
+      postId = createForumPost(channelId, title, content, status);
+      sheet.getRange(row, postCol).setValue(postId);
+    }
     return;
   }
 

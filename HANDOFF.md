@@ -1,13 +1,15 @@
-# Discord Relay + KPI Dashboard — Session Handoff
+# Funnel Automation System — Session Handoff
 
-_Last updated: 2026-06-24_
+_Last updated: 2026-06-30_
 
 ## TL;DR
-The Google Sheet → Hubstaff/Discord automation was broken. Root cause was **not** the
-deployment or URL — it was that the Google Apps Script triggers had been auto-disabled
-(owned by a former Google account). Fixed by recreating the triggers under the current
-account, then fixed a second bug (empty `assignee_ids` crash on Customer Support tasks).
-Everything is now working end-to-end and verified on real data.
+The Google Sheet → Hubstaff/Discord automation was broken; root cause was that the Apps Script
+triggers had been auto-disabled (owned by a former Google account). After recreating them, a
+series of follow-on issues were fixed: an empty-`assignee_ids` crash, a stalled job queue, the
+"one thread per funnel" behaviour, and bad data in the sheet. Everything is working end-to-end
+and verified on real data. `clasp` is now set up so the Apps Script can be edited from the
+terminal. Main things still open: **rotate the leaked credentials**, **merge the PR**, and
+optionally **ship the thread self-heal**.
 
 ---
 
@@ -16,127 +18,154 @@ Everything is now working end-to-end and verified on real data.
 ### Apps (Fly.io, org `personal`, account michaelaxenos@gmail.com)
 | App | Role | Status |
 |-----|------|--------|
-| `mellowed-snowfall-236` | **The relay** (this repo). URL: https://mellowed-snowfall-236.fly.dev | deployed, healthy |
+| `mellowed-snowfall-236` | **The relay** (this repo). https://mellowed-snowfall-236.fly.dev | deployed, healthy |
 | `discord-relay-db` | Postgres (single node, region `gru`) attached to the relay | deployed |
-| `kpi-dashboard-lumin` | KPI dashboard (separate repo, see below) | pending (not investigated this session) |
-| `discord-relay-m5ozaw` | **Previous** relay app | suspended (was likely the old prod target) |
-| `html-stripper` | unrelated | suspended |
+| `kpi-dashboard-lumin` | KPI dashboard (separate repo) | `pending` on Fly — not investigated |
+| `discord-relay-m5ozaw` | Previous relay app | suspended |
 
 > The README's old URL `discord-relay-lucid-dew-846` no longer exists.
 
-### Tooling notes
-- `flyctl` is installed at `~/.fly/bin/flyctl` (Homebrew is NOT installed on this machine).
-  Add to PATH: `export PATH="$HOME/.fly/bin:$PATH"`.
-- Logged into Fly as michaelaxenos@gmail.com.
+### Tooling on this machine
+- `flyctl` → `~/.fly/bin/flyctl` (no Homebrew). `export PATH="$HOME/.fly/bin:$PATH"`. Logged in as michaelaxenos@gmail.com.
+- `clasp` (Apps Script CLI) → installed globally via npm, logged in as michaelaxenos@gmail.com
+  (`~/.clasprc.json`). Node at `~/.nvm/versions/node/v24.15.0/bin`.
+- `node`/`npm` present; `gws` CLI present but only Drive-scoped (no Apps Script scope).
 
 ### Relay admin panel
-- URL: https://mellowed-snowfall-236.fly.dev/admin/login
-- User: `michael.xenos@lumin-brands.com` / `Lumin2026!` (AdminUser id=1, created this session)
-- Mission Control jobs UI: `/admin/jobs`
+- https://mellowed-snowfall-236.fly.dev/admin/login
+- `michael.xenos@lumin-brands.com` / `Lumin2026!` (AdminUser id=1) — change the password.
+- Background-jobs UI: `/admin/jobs`
 
-### Relay secrets (set on the Fly app)
+### Relay secrets (on the Fly app)
 `DISCORD_BOT_TOKEN`, `HUBSTAFF_REFRESH_TOKEN`, `HUBSTAFF_ORG_ID` (=697101),
 `GOOGLE_SERVICE_ACCOUNT_JSON` (base64), `KPI_DASHBOARD_API_KEY`, `SECRET_KEY_BASE`
-(generated — repo `master.key` was missing/gitignored), `DATABASE_URL` (auto from pg attach).
+(generated — repo `master.key` was missing), `DATABASE_URL`, `SOLID_QUEUE_IN_PUMA=true`.
 
 ### Google Apps Script (the trigger layer)
 - Bound to spreadsheet **"Products & Funnels (Lumin Brands Tracker)"**
-  (ID `1Mczh0xJgnXxN3n36hx6hzxxLBjtIM83YD3tXzEJ4hno`), tab **"Testing"`.
+  (`1Mczh0xJgnXxN3n36hx6hzxxLBjtIM83YD3tXzEJ4hno`), tab **"Testing"**.
 - Script project ID: `1MBqFI-7gLQAduOJlZdTBRvtLGZDV8BU6JMMEX6IUXTj8R0vEm9KvLGmG`
-- Script Property `RELAY_URL` = `https://mellowed-snowfall-236.fly.dev` (already correct).
-- Also has `SHEETS_PROXY_URL` / `SHEETS_PROXY_SECRET` (a Cloudflare worker) — unrelated to
-  the Hubstaff path; `SHEETS_PROXY_SECRET` is still a placeholder (`set-this-via-wrangler-secret`).
+- Script property `RELAY_URL` = `https://mellowed-snowfall-236.fly.dev`.
+- Funnel forum channel `DISCORD_FUNNEL_CHANNEL_ID = 1495131357746171994`.
+
+### Editing the Apps Script (now possible from terminal)
+```bash
+export PATH="$HOME/.nvm/versions/node/v24.15.0/bin:$PATH"
+mkdir -p /tmp/funnel_as && cd /tmp/funnel_as
+clasp clone 1MBqFI-7gLQAduOJlZdTBRvtLGZDV8BU6JMMEX6IUXTj8R0vEm9KvLGmG   # pull
+# edit the .js file(s), then:
+clasp push --force                                                      # push live
+```
+⚠️ The deployed project splits functions across files (`funnel-assignment.js`, `editing-assignment.js`,
+`google-sheets-trigger.js`, `hubStaff.js`, `discord.js`, `Code.js`, `colNameNumbers.js`, …).
+The repo's `track_funnel.js` is a **combined reference copy** and is NOT a 1:1 of any single
+deployed file — never paste it over a live file wholesale (it would duplicate functions). Patch the
+specific function in place.
 
 ---
 
-## What was done this session
-1. **Deployed the relay** to a fresh Fly app `mellowed-snowfall-236` + Postgres; set all secrets.
-   Granted `CREATEDB` to the app's pg role so `db:prepare` could create the Solid
-   Queue/Cache/Cable databases.
-2. **Created the admin user** (above).
-3. **Diagnosed the real bug:** new sheet rows weren't creating Hubstaff projects. Backend was
-   healthy and `RELAY_URL` was already correct. The cause: **6 of 7 "on edit" triggers were
-   Disabled, owned by "Other user"** (the previous developer's Google account — Google disables
-   a trigger when its owner loses access). Only the auto-folder trigger ran.
-4. **Recreated all 6 triggers** under michaelaxenos@gmail.com (event: From spreadsheet / On edit):
-   `onProjectRowAdded`, `onHubstaffProjectIdCleared`, `handleEdit`,
-   `trackFunnelAssignment`, `trackWinnersAssignment`, `trackEditingAssignment`.
-5. **Fixed a second bug** (surfaced once the pipeline ran again): Hubstaff returns
-   `400 assignee_ids is empty`, which crashed project creation. The standard task set includes
-   two **general Customer Support tasks** ("Dispute Resolution", "Sourcing & Margin Calculation")
-   that are intentionally **not** tied to a funnel, so they resolved to empty assignees.
-   Fix = skip any task that resolves to zero assignees (they're never created in funnel projects).
-   - File: `app/services/hubstaff_service.rb`
-   - Branch: `fix/cs-task-assignees` (commit `d5a7d3f`), pushed to GitHub. **PR not yet merged.**
-   - Deployed to Fly. Verified: a funnel project now creates **19 tasks**, skipping exactly the
-     2 general CS tasks.
-6. **Fixed job-queue reliability** (rows stuck on `pending`, columns AR not updating): the
-   separate `worker` machine had **no auto-start** and silently stopped, stalling the queue
-   (`SolidQueue::Processes::ProcessPrunedError`). Switched to running **Solid Queue inside Puma**
-   on the always-on `app` machines (`SOLID_QUEUE_IN_PUMA=true` in `fly.toml [env]`) and **removed
-   the `worker` process**. Verified both app machines now run Supervisor/Dispatcher/Worker/Scheduler.
-   Cleaned up duplicate `pending` Project records (rows already had IDs from sibling jobs).
+## What was done
+
+1. **Deployed the relay** to `mellowed-snowfall-236` + Postgres; set all secrets; granted `CREATEDB`
+   so `db:prepare` could create the Solid Queue/Cache/Cable databases. Created the admin user.
+2. **Root-cause fix — disabled triggers:** 6 of 7 on-edit triggers were Disabled (owned by a former
+   Google account). Recreated all 6 under the current account (From spreadsheet / On edit):
+   `onProjectRowAdded`, `onHubstaffProjectIdCleared`, `handleEdit`, `trackFunnelAssignment`,
+   `trackWinnersAssignment`, `trackEditingAssignment`.
+3. **Empty-assignee crash:** Hubstaff rejects tasks with no assignee (error 11000), which crashed
+   project creation when the standard set included the two general Customer Support tasks
+   (Dispute Resolution, Sourcing & Margin Calculation). Fix = skip zero-assignee tasks; those general
+   tasks are simply not created in funnel projects. (`app/services/hubstaff_service.rb`.) Verified: a
+   project now creates 19 tasks.
+4. **Job-queue reliability:** the separate `worker` machine had no auto-start and silently stopped,
+   leaving rows on `pending`. Switched to running Solid Queue **inside Puma** on the always-on app
+   machines (`SOLID_QUEUE_IN_PUMA=true`) and removed the worker process. Cleaned up duplicate
+   `pending` records.
+5. **Backfilled** missing Discord funnel posts for rows 614–634 that had a builder but no Funnel Post Id.
+6. **One thread per funnel (LIVE):** changed `trackFunnelAssignment` so a builder reassignment
+   **renames the existing thread + posts a note** instead of creating a duplicate. Applied to the live
+   Apps Script via `clasp` and committed to the repo (`track_funnel.js`).
+7. **Data-hygiene fixes:**
+   - Row 626's `Funnel Post Id` held stray text (`"No, don't backfill all rows, …"`) → cleared it
+     (it was crashing `trackFunnelAssignment` with a "bad URI" error → failure emails).
+   - Row 628's thread had been deleted in Discord (404) so status updates silently no-op'd → recreated
+     the thread (`1520405798218498181`) with the current status tag and updated the sheet.
 
 ---
 
-## Current state — all working ✅
-- Adding a properly-filled row (Market, Code, Product Name, Date Added, Funnel Name) creates the
-  Hubstaff project + tasks and writes the Hubstaff Project ID back to column AR.
-- Verified on real data: rows 629 (`NLBE565` → 4091966) and 630 (`DEAT565` → 4091967) succeeded
-  with distinct IDs.
+## Current state — working ✅
+- A properly-filled new row creates the Hubstaff project + tasks and writes the Project ID back to
+  column AR (verified, e.g. NLBE565→4091966, DEAT565→4091967).
+- Funnel builder assignment opens/updates a single Discord thread per funnel; status changes re-tag it.
+- **1 funnel = 1 Hubstaff project = 1 market.** Funnel Name carries the market code (`NLBE565…` vs
+  `DEAT565…`) so markets never merge. Relay dedups by name (sheet → DB → Hubstaff). KPI dashboard
+  keys on Hubstaff IDs, syncing directly from Hubstaff (not the sheet).
 
-### How the data model holds together (confirmed)
-- **Funnel Name is unique per market** — it includes the market-code prefix, e.g.
-  `NLBE565 Bee Venom Mouthwash` vs `DEAT565 Bee Venom Mouthwash`. So **1 funnel = 1 Hubstaff
-  project = 1 market**.
-- **Relay dedup is by funnel name** (3 layers: sheet duplicate check → DB name match → Hubstaff
-  active-project name match). Because funnel names carry the market code, NLBE/DEAT never merge.
-  ⚠️ Dependency: this only holds while funnel names keep the market-code prefix. A bare
-  product-name funnel could collide.
-- **KPI dashboard keys on Hubstaff Project ID**, not names, and syncs **directly from the Hubstaff
-  API** (it does NOT read the Google Sheet). So per-market metrics stay separate as long as the
-  Hubstaff projects are separate.
+---
+
+## Known issue & the proposed self-heal (NOT yet implemented)
+The sheet's `Funnel Post Id` can go bad two ways, and the automation doesn't currently cope:
+- **Garbage text in the cell** → relay does `PATCH channels/<text>` → bad URI → 500 → Apps Script
+  failure email. (Seen on row 626.)
+- **Deleted-thread ID** → `update_forum_post` never checks whether the PATCH succeeded, so it returns
+  "ok" and the tag silently never updates. (Seen on row 628.)
+
+Proposed 3-part self-heal:
+1. Relay `update_forum_post` — validate the thread ID is numeric and check the Discord response;
+   signal "thread missing" instead of crashing / faking success.
+2. Relay `create_forum_post` — when reusing an existing thread record, verify it still exists in
+   Discord; if not, drop the stale record and create fresh (so recreation actually works).
+3. Apps Script `trackFunnelAssignment` — on a missing thread, recreate it and write the new ID back.
+
+Net effect: a deleted thread or fat-fingered cell auto-repairs on the next edit.
 
 ---
 
 ## Open follow-ups / TODO
-- [ ] **Rotate the leaked credentials** — Discord bot token, Hubstaff refresh token, Google
-      service-account key, and `KPI_DASHBOARD_API_KEY` were pasted in chat. Regenerate each and
-      `flyctl secrets set KEY=newvalue -a mellowed-snowfall-236`.
-- [ ] **Merge the PR**: https://github.com/michaelaxenos-max/discord_relay/pull/new/fix/cs-task-assignees
-      (`gh` is not installed locally, so merge via GitHub UI).
-- [ ] **Orphaned Hubstaff projects**: the pre-fix failed attempts (projects 266/267) may have
-      created Hubstaff projects that then crashed mid-setup → possible duplicates. Cleanup:
-      `flyctl ssh console -a mellowed-snowfall-236 -C "bin/rails hubstaff:dedup_projects"`
-      (archives all but the oldest per name). Review before running.
-- [ ] **`fly.toml`** in this repo still has the app-name change staged locally (not committed):
-      `app = 'mellowed-snowfall-236'`. Commit it if you want a fresh clone's `fly deploy` to
-      target the right app.
-- [ ] **`kpi-dashboard-lumin`** shows status `pending` on Fly — not investigated this session.
-- [ ] Optional: change the admin password (it was set in chat).
+- [ ] 🔴 **Rotate the leaked credentials** (Discord, Hubstaff refresh token, Google service-account
+      key, KPI key) shared in chat; then `flyctl secrets set KEY=newvalue -a mellowed-snowfall-236`.
+- [ ] **Merge the PR** — branch `fix/cs-task-assignees` (github.com/michaelaxenos-max/discord_relay).
+      `gh` not installed locally → merge via GitHub UI. Contains all relay + Apps Script + docs changes.
+- [ ] **Ship the thread self-heal** (above) — relay + Apps Script change; can be done via flyctl + clasp.
+- [ ] **Orphaned Hubstaff projects** from pre-fix failures: review then
+      `flyctl ssh console -a mellowed-snowfall-236 -C "bin/rails hubstaff:dedup_projects"`.
+- [ ] Change the admin password (set in chat).
+- [ ] `kpi-dashboard-lumin` shows `pending` on Fly — investigate.
 
 ---
 
-## Gotchas / things to remember
-- **Trigger ownership**: Apps Script triggers created by a user who later loses access get
-  silently Disabled. If automations stop firing, check Triggers page ownership first.
-- **Hubstaff requires ≥1 assignee per task** (error_code 11000). Never post a task with empty
-  `assignee_ids` — the code now skips them.
-- **The relay only exposes `/api/task_templates`** to the KPI dashboard (task catalog, protected
-  by `KPI_DASHBOARD_API_KEY`). It does NOT broker the funnel↔project mapping.
-- **The Apps Script `RELAY_URL` and `SHEETS_PROXY_URL` are different paths** — Hubstaff/Discord
-  relay calls go straight to `RELAY_URL`; the proxy is a separate Cloudflare worker.
+## Gotchas
+- **Trigger ownership:** triggers created by a user who loses access get auto-disabled. If automations
+  stop firing, check Triggers-page ownership first.
+- **Repo `track_funnel.js` ≠ deployed files** — it's a combined reference; patch live files in place
+  via `clasp`, don't overwrite (see "Editing the Apps Script").
+- **Hubstaff requires ≥1 assignee per task** (error 11000) — never post a task with empty `assignee_ids`.
+- **Discord thread identity** = (channel_id, title); funnel titles are `"{Funnel Name} - {Builder}"`.
+  Deleting a thread in Discord without clearing the sheet cell breaks status updates until recreated.
+- **The relay only exposes `/api/task_templates`** to the KPI dashboard; it does NOT broker the
+  funnel↔project mapping.
+
+---
+
+## Docs & artifacts produced
+- **Drive "Documents" folder** (`1-1K1HU5m6Nunv1xUskPUW1jJerO9qRZQ`): Editor SOP (PDF),
+  "Funnel System — Overview" (Doc), "Funnel System — Technical Handoff" (Doc).
+- **Editor SOP** — `EDITOR_SOP.md` (repo) + the PDF.
+- **Visual overview** — `funnel-system-visual.html` (repo). Live link via
+  https://raw.githack.com/michaelaxenos-max/discord_relay/fix/cs-task-assignees/funnel-system-visual.html
+- **This handoff** — `HANDOFF.md` (repo).
 
 ## Useful commands
 ```bash
 export PATH="$HOME/.fly/bin:$PATH"
-flyctl status  -a mellowed-snowfall-236
-flyctl logs    -a mellowed-snowfall-236
+flyctl status -a mellowed-snowfall-236
+flyctl logs   -a mellowed-snowfall-236
 flyctl ssh console -a mellowed-snowfall-236 -C "bin/rails runner '...'"
-cd ~/discord_relay && flyctl deploy -a mellowed-snowfall-236   # redeploy after code changes
+cd ~/discord_relay && flyctl deploy -a mellowed-snowfall-236
+# Apps Script: see "Editing the Apps Script" above (clasp clone / push)
 ```
 
 ## Repos (cloned locally)
-- Relay: `~/discord_relay` (GitHub: michaelaxenos-max/discord_relay)
-- Dashboard: `~/kpi_dashboard` (GitHub: michaelaxenos-max/kpi_dashboard) — Rails 8, uses the
-  vendored `corepulse` gem (`vendor/corepulse`) for Hubstaff sync; keys everything on Hubstaff IDs.
+- Relay: `~/discord_relay` (github.com/michaelaxenos-max/discord_relay)
+- Dashboard: `~/kpi_dashboard` (github.com/michaelaxenos-max/kpi_dashboard) — Rails 8; vendored
+  `corepulse` gem does the Hubstaff sync, keyed entirely on Hubstaff IDs.

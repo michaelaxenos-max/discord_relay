@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funnel Automation System — How It Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f0f10; --surface:#1a1a1d; --surface2:#202024; --border:#2a2a2d;
+    --text:#ffffff; --muted:#a0a0a0; --accent:#D97757; --accent-bg:rgba(217,119,87,.14);
+    --teal:#3dd6a5; --teal-bg:rgba(61,214,165,.12);
+    --blue:#5aa6f0; --blue-bg:rgba(90,166,240,.12);
+    --amber:#e6b450; --amber-bg:rgba(230,180,80,.12);
+    --red:#e2655f; --red-bg:rgba(226,101,95,.12);
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  @page{margin:0}
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:var(--bg)}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+  section{padding:72px 0;border-bottom:1px solid var(--border)}
+  section:last-child{border-bottom:none}
+  h1{font-size:clamp(34px,6vw,52px);font-weight:800;letter-spacing:-.02em;line-height:1.05}
+  h2{font-size:clamp(24px,3.5vw,32px);font-weight:700;letter-spacing:-.01em;margin-bottom:10px}
+  h3{font-size:18px;font-weight:600;margin-bottom:6px}
+  .eyebrow{font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+  .lead{color:var(--muted);font-size:clamp(16px,2vw,19px);max-width:680px}
+  .sub{color:var(--muted);max-width:680px;margin-bottom:36px}
+  .mono{font-family:var(--mono)}
+
+  /* hero */
+  .hero{padding:96px 0 72px}
+  .hero .tag{display:inline-block;background:var(--accent-bg);color:var(--accent);font-weight:600;font-size:13px;padding:6px 14px;border-radius:999px;margin-bottom:24px}
+
+  /* stat cards */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:44px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}
+  .stat .n{font-size:30px;font-weight:800;letter-spacing:-.02em}
+  .stat .l{color:var(--muted);font-size:13px;margin-top:4px}
+
+  /* flow diagram */
+  .flow{display:flex;flex-direction:column;align-items:center;gap:0;margin-top:8px}
+  .node{width:100%;max-width:560px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;text-align:center;position:relative}
+  .node .k{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .node .t{font-size:18px;font-weight:700;margin-top:3px}
+  .node .d{color:var(--muted);font-size:13.5px;margin-top:4px}
+  .node.accent{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-bg),0 8px 30px -12px rgba(217,119,87,.5)}
+  .node.accent .k{color:var(--accent)}
+  .arrow{width:2px;height:34px;background:linear-gradient(var(--border),var(--accent));position:relative;margin:6px 0}
+  .arrow::after{content:"";position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid var(--accent)}
+  .arrow .lbl{position:absolute;left:18px;top:50%;transform:translateY(-50%);white-space:nowrap;color:var(--muted);font-size:12.5px}
+  .fanout{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%;margin-top:6px}
+  .leaf{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+  .leaf .ico{font-size:22px}
+  .leaf .t{font-weight:700;margin-top:6px;font-size:15px}
+  .leaf .d{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .branchbar{width:80%;height:2px;background:var(--border);margin:14px auto 0}
+
+  /* cards grid */
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:8px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px}
+  .card .ico{font-size:24px;margin-bottom:12px;display:block}
+  .card p{color:var(--muted);font-size:14.5px}
+
+  /* steps */
+  .steps{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+  .step{display:flex;gap:18px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px}
+  .step .num{flex:0 0 38px;height:38px;width:38px;border-radius:50%;background:var(--accent-bg);color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:16px}
+  .step .body{flex:1}
+  .step .body p{color:var(--muted);font-size:14.5px}
+
+  /* badges */
+  .badge{display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;margin:2px 2px 0 0}
+  .b-teal{background:var(--teal-bg);color:var(--teal)} .b-blue{background:var(--blue-bg);color:var(--blue)}
+  .b-amber{background:var(--amber-bg);color:var(--amber)} .b-acc{background:var(--accent-bg);color:var(--accent)}
+  .b-red{background:var(--red-bg);color:var(--red)}
+
+  /* callout */
+  .callout{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:0 12px 12px 0;padding:18px 22px;margin-top:16px;display:flex;gap:14px}
+  .callout .ico{font-size:20px}
+  .callout .t{font-weight:600;margin-bottom:2px}
+  .callout p{color:var(--muted);font-size:14.5px}
+
+  /* code / task table */
+  .codebox{background:#000;border:1px solid var(--border);border-radius:12px;padding:18px 20px;font-family:var(--mono);font-size:13.5px;overflow-x:auto;margin-top:8px}
+  .codebox .row{display:flex;gap:14px;padding:7px 0;border-bottom:1px solid #161616;white-space:nowrap}
+  .codebox .row:last-child{border-bottom:none}
+  .codebox .from{color:var(--muted);min-width:175px}
+  .codebox .to{color:var(--teal)}
+  .codebox .arr{color:var(--accent)}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14.5px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  th,td{text-align:left;padding:14px 18px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{background:var(--surface2);font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  td .mono{color:var(--accent)}
+
+  .footnote{color:var(--muted);font-size:13px;margin-top:36px;text-align:center}
+
+  @media(max-width:760px){
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .fanout{grid-template-columns:1fr}
+    .grid{grid-template-columns:1fr}
+    .arrow .lbl{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero wrap">
+  <span class="tag">Lumin Brands · Internal Ops</span>
+  <h1>The Funnel Automation System</h1>
+  <p class="lead" style="margin-top:18px">One Google Sheet drives everything. Edit a row, and the system spins up the Hubstaff project, opens a Discord tracking thread, writes results back, and feeds the KPI dashboard — automatically.</p>
+  <div class="stats">
+    <div class="stat"><div class="n">1</div><div class="l">control panel (the sheet)</div></div>
+    <div class="stat"><div class="n">3</div><div class="l">integrations wired in</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">teams auto-assigned</div></div>
+    <div class="stat"><div class="n">1:1:1</div><div class="l">funnel : project : market</div></div>
+  </div>
+</header>
+
+<!-- ARCHITECTURE -->
+<section class="wrap">
+  <div class="eyebrow">The big picture</div>
+  <h2>How the pieces connect</h2>
+  <p class="sub">The relay app is the hub. The sheet tells it what to do; it fans the work out to Hubstaff, Discord, and back to the sheet. The KPI dashboard reads straight from Hubstaff.</p>
+
+  <div class="flow">
+    <div class="node">
+      <div class="k">Source of truth</div>
+      <div class="t">📊 Google Sheet — “Testing” tab</div>
+      <div class="d">The team edits a row (funnel, builder, status…)</div>
+    </div>
+    <div class="arrow"><span class="lbl">Apps Script · on-edit triggers</span></div>
+    <div class="node accent">
+      <div class="k">The hub</div>
+      <div class="t">⚙️ Relay app (Rails on Fly.io)</div>
+      <div class="d">Receives the edit and decides what to do</div>
+    </div>
+    <div class="arrow"><span class="lbl">fans out to…</span></div>
+    <div class="fanout">
+      <div class="leaf"><div class="ico">⏱️</div><div class="t">Hubstaff</div><div class="d">Create project + tasks, auto-assign teams</div></div>
+      <div class="leaf"><div class="ico">💬</div><div class="t">Discord</div><div class="d">Open / update a forum tracking thread</div></div>
+      <div class="leaf"><div class="ico">↩️</div><div class="t">Sheet write-back</div><div class="d">Hubstaff ID + thread ID back to the row</div></div>
+    </div>
+    <div class="branchbar"></div>
+    <div class="arrow"><span class="lbl">syncs directly from Hubstaff (by ID, not the sheet)</span></div>
+    <div class="node">
+      <div class="k">Reporting</div>
+      <div class="t">📈 KPI Dashboard</div>
+      <div class="d">Pulls time per task from Hubstaff &amp; scores it vs standard hours</div>
+    </div>
+  </div>
+</section>
+
+<!-- HUBSTAFF FLOW -->
+<section class="wrap">
+  <div class="eyebrow">Flow 1 · adding a funnel</div>
+  <h2>New row → Hubstaff project</h2>
+  <p class="sub">When a row has Market, Code, Product Name, Date Added &amp; Funnel Name filled in:</p>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div class="body"><h3>Sheet locks the row</h3><p>Apps Script writes <span class="mono">“pending”</span> into the Hubstaff Project ID cell and calls the relay.</p></div></div>
+    <div class="step"><div class="num">2</div><div class="body"><h3>Relay creates the project</h3><p>A Hubstaff project is created for the funnel, with the standard task list — each task auto-assigned to its team: <span class="badge b-blue">Editor</span><span class="badge b-teal">Funnel Builders</span><span class="badge b-amber">Facebook Launcher</span>. General Customer Support tasks are intentionally skipped.</p></div></div>
+    <div class="step"><div class="num">3</div><div class="body"><h3>ID written back</h3><p>The real Hubstaff Project ID replaces <span class="mono">“pending”</span> in the sheet. Runs as a background job, so it’s reliable even under rate limits.</p></div></div>
+  </div>
+  <div class="callout"><div class="ico">🛡️</div><div><div class="t">No duplicates</div><p>Before creating, the relay checks the sheet, its own DB, and Hubstaff by name. Same funnel → it reuses the existing project instead of making a second one.</p></div></div>
+</section>
+
+<!-- DISCORD FLOW -->
+<section class="wrap">
+  <div class="eyebrow">Flow 2 · tracking the work</div>
+  <h2>Assignments → Discord threads</h2>
+  <div class="grid">
+    <div class="card"><span class="ico">🧵</span><h3>One thread per funnel</h3><p>Assign a Funnel Builder and a forum thread opens in the proofreading channel. Its ID is saved in the row’s <span class="mono">Funnel Post Id</span>.</p></div>
+    <div class="card"><span class="ico">🏷️</span><h3>Status keeps it live</h3><p>Change the row’s status and the thread is re-tagged automatically <span class="badge b-amber">In progress</span><span class="badge b-blue">For proofreading</span><span class="badge b-teal">Ready</span> — and a comment is posted for proofreading.</p></div>
+    <div class="card"><span class="ico">🔁</span><h3>Reassigning renames</h3><p>Change the builder and the <em>same</em> thread is renamed + noted — not duplicated. Clear the builder and the thread is deleted.</p></div>
+    <div class="card"><span class="ico">🩹</span><h3>Self-healing (planned)</h3><p>If a thread is deleted in Discord, the next status update can recreate it automatically instead of failing silently.</p></div>
+  </div>
+</section>
+
+<!-- EDITOR TIME TRACKING -->
+<section class="wrap">
+  <div class="eyebrow">For editors</div>
+  <h2>Tracking time in Hubstaff</h2>
+  <p class="sub">The quantity is baked into the task name — “selecting the number” just means picking the matching task, then start/stop the clock on it.</p>
+  <div class="codebox">
+    <div class="row"><span class="from">3 × 2-min videos</span><span class="arr">→</span><span class="to">Video - 2min - 3 Videos</span></div>
+    <div class="row"><span class="from">2 × 1-min videos</span><span class="arr">→</span><span class="to">Video – under 1 min - 2 Videos</span></div>
+    <div class="row"><span class="from">4 × 3-min videos</span><span class="arr">→</span><span class="to">Video - 3min - 4 Videos</span></div>
+    <div class="row"><span class="from">12 image ads</span><span class="arr">→</span><span class="to">Image (from scratch) - 12 Image Ads</span></div>
+  </div>
+  <div class="callout"><div class="ico">⏱️</div><div><div class="t">Start &amp; stop, one task at a time</div><p>Start the timer on the matching task when you begin; stop when you pause, finish, or switch task type. Count variants exist for 2/3/4-min &amp; under-1-min videos (1–6) and images (10–20).</p></div></div>
+</section>
+
+<!-- KEY RULES -->
+<section class="wrap">
+  <div class="eyebrow">Rules that hold it together</div>
+  <h2>Three things to know</h2>
+  <table>
+    <thead><tr><th>Principle</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1 funnel = 1 project = 1 market</strong></td><td>The Funnel Name carries the market code (<span class="mono">NLBE565 …</span> vs <span class="mono">DEAT565 …</span>), so each market gets its own Hubstaff project — they never merge.</td></tr>
+      <tr><td><strong>Dedup everywhere</strong></td><td>Hubstaff projects matched by name; Discord threads unique per channel + title. The system reuses, never double-creates.</td></tr>
+      <tr><td><strong>Dashboard keys on IDs</strong></td><td>The KPI dashboard matches on Hubstaff project / task / user IDs pulled straight from Hubstaff — not funnel names, and not the sheet. Robust by design.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- STACK -->
+<section class="wrap">
+  <div class="eyebrow">Under the hood</div>
+  <h2>What runs where</h2>
+  <div class="grid">
+    <div class="card"><span class="ico">📊</span><h3>Google Sheet + Apps Script</h3><p>The control panel and the on-edit triggers that call the relay (<span class="mono">onProjectRowAdded</span>, <span class="mono">trackFunnelAssignment</span>, …).</p></div>
+    <div class="card"><span class="ico">⚙️</span><h3>Relay — Rails on Fly.io</h3><p><span class="mono">mellowed-snowfall-236</span> + Postgres. Talks to Discord, Hubstaff &amp; the Sheets API; jobs run in-app for reliability.</p></div>
+    <div class="card"><span class="ico">⏱️</span><h3>Hubstaff</h3><p>Projects, tasks &amp; time tracking — the system of record for who did what.</p></div>
+    <div class="card"><span class="ico">📈</span><h3>KPI Dashboard</h3><p>Separate Rails app that syncs Hubstaff data and scores time against standard hours per task.</p></div>
+  </div>
+  <p class="footnote">Funnel Automation System · overview for the Lumin Brands team</p>
+</section>
+
+</body>
+</html>

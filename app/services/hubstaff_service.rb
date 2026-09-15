@@ -115,10 +115,7 @@ class HubstaffService
   end
 
   def create_user_tasks_for_project(project_id, user_id, team_name)
-    members = get("/projects/#{project_id}/members").fetch("project_members", [])
-    unless members.any? { |m| m["user_id"] == user_id }
-      return 0 unless add_member_to_project(project_id, user_id)
-    end
+    return 0 unless add_member_to_project(project_id, user_id)
 
     task_names = task_names_for_team(team_name)
     existing   = get_project_tasks(project_id)
@@ -131,7 +128,7 @@ class HubstaffService
 
       task_detail = get("/tasks/#{task["id"]}").fetch("task", {})
       put("/tasks/#{task["id"]}", {
-        assignee_ids: (task_detail["assignee_ids"] || []) + [user_id],
+        assignee_ids: without_departed_members(task_detail["assignee_ids"] || []) + [user_id],
         lock_version: task_detail["lock_version"],
         summary:      task_detail["summary"],
         status:       task_detail["status"] || "active"
@@ -171,11 +168,25 @@ class HubstaffService
     get("/teams/#{team_id}/members").fetch("team_members", []).map { |m| m["user_id"] }
   end
 
+  # Returns true if the user is (now) a project member, false on any failure.
+  #
+  # POST /projects/{id}/members is a 405; PUT /projects/{id}/update_members is the call that works.
+  # Its merge-vs-replace semantics are unconfirmed, so always send the full current roster (with each
+  # member's existing role) plus the new user, then re-read the roster to confirm the add stuck.
   def add_member_to_project(project_id, user_id, role: "user")
-    role = "manager" if user_id == MANAGER_USER_ID
-    post("/projects/#{project_id}/members", { user_id: user_id, role: role })
+    role   = "manager" if user_id == MANAGER_USER_ID
+    roster = project_members(project_id)
+    return true if roster.any? { |m| m["user_id"] == user_id }
+
+    members = roster.map { |m| { user_id: m["user_id"], role: m.fetch("membership_role") } }
+    put("/projects/#{project_id}/update_members", { members: members + [{ user_id: user_id, role: role }] })
+
+    return true if project_members(project_id).any? { |m| m["user_id"] == user_id }
+    Rails.logger.error "update_members returned OK but user #{user_id} is still not a member of project #{project_id}"
+    false
   rescue => e
     Rails.logger.error "Failed to add user #{user_id} to project #{project_id}: #{e.message}"
+    false
   end
 
   def get_project_tasks(project_id)
@@ -189,7 +200,7 @@ class HubstaffService
     task_data = get("/tasks/#{task_id}").fetch("task", {})
     current   = task_data["assignee_ids"] || []
     return if current.include?(user_id)
-    put("/tasks/#{task_id}", { assignee_ids: current + [user_id], lock_version: task_data["lock_version"] })
+    put("/tasks/#{task_id}", { assignee_ids: without_departed_members(current) + [user_id], lock_version: task_data["lock_version"] })
   rescue => e
     Rails.logger.error "Failed to add assignee #{user_id} to task #{task_id}: #{e.message}"
   end
@@ -198,7 +209,7 @@ class HubstaffService
     task_data = get("/tasks/#{task_id}").fetch("task", {})
     current   = task_data["assignee_ids"] || []
     return unless current.include?(user_id)
-    put("/tasks/#{task_id}", { assignee_ids: current - [user_id], lock_version: task_data["lock_version"] })
+    put("/tasks/#{task_id}", { assignee_ids: without_departed_members(current) - [user_id], lock_version: task_data["lock_version"] })
   rescue => e
     Rails.logger.error "Failed to remove assignee #{user_id} from task #{task_id}: #{e.message}"
   end
@@ -286,7 +297,7 @@ class HubstaffService
       next if missing.empty?
 
       task_detail  = get("/tasks/#{task["id"]}").fetch("task", {})
-      updated_ids  = (current + missing).uniq
+      updated_ids  = (without_departed_members(current) + missing).uniq
       put("/tasks/#{task["id"]}", {
         assignee_ids: updated_ids,
         lock_version: task_detail["lock_version"],
@@ -422,7 +433,34 @@ class HubstaffService
   end
 
   def project_member_id_set(project_id)
-    get("/projects/#{project_id}/members").fetch("project_members", []).map { |m| m["user_id"] }.to_set
+    project_members(project_id).map { |m| m["user_id"] }.to_set
+  end
+
+  # GET /projects/{id}/members returns { "members" => [{ "user_id", "membership_role", ... }], "pagination" => ... }.
+  # The key is "members", not "project_members" (reading the latter always yielded []). Paginated, so
+  # follow next_page_start_id: update_members is fed this list, and a truncated roster could drop people.
+  def project_members(project_id)
+    members  = []
+    start_id = nil
+    loop do
+      path  = "/projects/#{project_id}/members?page_limit=500"
+      path += "&page_start_id=#{start_id}" if start_id
+      page  = get(path)
+      members.concat(page.fetch("members"))
+      next_id = page.dig("pagination", "next_page_start_id")
+      break if next_id.nil? || next_id == start_id
+      start_id = next_id
+    end
+    members
+  end
+
+  # Hubstaff 403s PUT /tasks/{id} if the task's existing assignee_ids include anyone no longer in the
+  # org, so strip ex-members before writing. Skipped if the org list comes back empty, so a bad
+  # response can never wipe every assignee.
+  def without_departed_members(assignee_ids)
+    active = org_member_ids
+    return assignee_ids if active.empty?
+    assignee_ids & active
   end
 
   def task_names_for_team(team_name)

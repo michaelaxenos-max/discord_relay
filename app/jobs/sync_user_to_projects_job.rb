@@ -6,8 +6,8 @@ class SyncUserToProjectsJob < ApplicationJob
     user_teams = service.user_team_names(user_id)
 
     project_ids.each do |project_id|
-      # Add user to project
-      service.add_member_to_project(project_id, user_id)
+      # Add user to project (task assignment 403s for non-members, so skip the project on failure)
+      next unless service.add_member_to_project(project_id, user_id)
 
       # Get tasks in this project
       project_tasks = service.get_project_tasks(project_id)

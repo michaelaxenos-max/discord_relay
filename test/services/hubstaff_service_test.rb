@@ -82,7 +82,7 @@ class HubstaffServiceTest < ActiveSupport::TestCase
   end
 
   test "add_member_to_project returns false and sends nothing when the roster can't be read" do
-    @stubs.get(url("/projects/#{PROJECT_ID}/members")) { json({ "error" => "boom" }, status: 500) }
+    @stubs.get(url("/projects/#{PROJECT_ID}/members")) { json({ "error" => "boom" }, 500) }
     stub_roster
 
     assert_equal false, @service.add_member_to_project(PROJECT_ID, NEW_USER)
@@ -162,7 +162,7 @@ class HubstaffServiceTest < ActiveSupport::TestCase
     "#{HubstaffService::BASE_URL}#{path}"
   end
 
-  def json(body, status: 200)
+  def json(body, status = 200)
     [ status, { "Content-Type" => "application/json" }, body.to_json ]
   end
 
@@ -178,7 +178,7 @@ class HubstaffServiceTest < ActiveSupport::TestCase
       sent = JSON.parse(env.request_body)
       @roster_puts << sent
       @roster = sent["members"].map { |m| member(m["user_id"], m["role"]) } if apply_update && update_status == 200
-      json({ "success" => update_status == 200 }, status: update_status)
+      json({ "success" => update_status == 200 }, update_status)
     end
   end
 
